@@ -15,6 +15,7 @@
   --r:18px;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--cream);color:var(--ink);font-family:'Gowun Dodum',system-ui,sans-serif;font-size:15px}
 h1,h2,h3,.jua{font-family:'Jua',sans-serif;font-weight:400;margin:0}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -54,6 +55,30 @@ label.f{display:block;margin:12px 0 6px;color:var(--ink2);font-size:13px}
 .nav .caret{width:16px;text-align:center;color:var(--ink2);font-size:11px}
 .sideh{display:flex;align-items:center;justify-content:space-between;margin:16px 6px 6px;color:var(--ink2);font-size:13px}
 .dropping{border-color:var(--main)!important;background:var(--main-soft)!important}
+.newfolder{display:block;width:calc(100% - 8px);margin:6px 4px 4px;border:2px dashed #E3D8C8;background:transparent;color:var(--ink2);text-align:left;padding:9px 12px}
+.newfolder:hover{border-color:var(--main);color:#4B57C8;background:var(--main-soft)}
+.secttl{font-family:'Jua';font-size:16px;color:var(--ink2);margin:6px 2px 10px}
+.bact{flex-wrap:wrap}
+body.is-dragging [data-drop]{border:2px dashed #C9BFF5 !important;background:#F6F3FF}
+body.is-dragging .side::before{content:'여기 폴더 위에 놓으세요 👇';display:block;font-size:12px;color:#6B5BD6;padding:0 12px 8px}
+.picklist{max-height:46vh;overflow:auto;margin-top:12px;border:1.5px solid var(--line);border-radius:14px;padding:6px}
+.pick{display:block;width:100%;text-align:left;border:0;border-radius:10px;padding:10px 14px;background:transparent}
+.pick:hover{background:var(--main-soft)}
+.pick.on{background:#F4EDE2}
+.lay{display:flex;gap:14px;align-items:center;width:100%;text-align:left;padding:14px;margin-bottom:10px;border:2px solid var(--line);border-radius:18px;background:#fff}
+.lay:hover{border-color:var(--main);background:#FAFAFF}
+.pv{flex:0 0 96px;height:66px;border-radius:12px;background:#EAF0FF;padding:7px;display:flex;gap:5px}
+.pv i{display:block;background:#fff;border-radius:4px}
+.pv-col > div,.pv-wall > div{flex:1;display:flex;flex-direction:column;gap:4px}
+.pv-col i{height:12px}
+.pv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.laybar{background:#FBF6EE;border-radius:16px;padding:12px;margin:10px 0 4px}
+.laybar .pv{flex-basis:70px;height:48px;padding:5px}
+.freeboard{padding:16px;border-radius:22px;min-height:300px}
+.freeboard.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;align-items:start}
+.freeboard.grid .post{margin:0;min-height:140px}
+.freeboard.wall{column-width:240px;column-gap:14px}
+.freeboard.wall .post{break-inside:avoid}
 .hr{height:1.5px;background:var(--line);margin:14px 4px}
 
 /* 메인 헤더 */
@@ -433,14 +458,15 @@ function renderSide(){
   const lb = liveBoards();
   return `
     ${navItem('📋 모든 보드', 'all', { cnt: lb.length })}
-    <div class="sideh"><span>폴더</span><button class="sm ghost" data-act="new-folder" title="새 폴더">＋</button></div>
-    ${renderTree() || '<div class="muted" style="font-size:13px;padding:4px 12px">폴더를 만들어 보드를 정리해 보세요</div>'}
+    <div class="sideh"><span>폴더</span></div>
+    ${renderTree()}
+    <button class="newfolder" data-act="new-folder">＋ 새 폴더</button>
     ${navItem('📄 폴더 밖 보드', 'none', { cnt: lb.filter(b => !b.folder_id).length, drop:'root' })}
     <div class="hr"></div>
     ${navItem('🧒 학생 명단', 'students', { cnt: S.students.filter(s => s.active).length })}
     ${navItem('🗃️ 보관함', 'archive', { cnt: S.boards.filter(b => b.archived_at && !b.deleted_at).length || '' })}
     ${navItem('🗑️ 휴지통', 'trash', { cnt: S.boards.filter(b => b.deleted_at).length || '' })}
-    <div class="muted" style="font-size:12px;padding:16px 12px;line-height:1.6">💡 보드 카드나 폴더를 끌어서 다른 폴더 위에 놓으면 옮겨져요.</div>`;
+    <div class="muted" style="font-size:12px;padding:16px 12px;line-height:1.6">💡 보드를 폴더에 넣으려면 카드의 <b>📁 옮기기</b>를 누르거나, 카드를 끌어서 왼쪽 폴더 위에 놓으세요.</div>`;
 }
 
 function boardCard(b){
@@ -449,17 +475,21 @@ function boardCard(b){
   let actions;
   if (b.deleted_at) actions = `<button class="sm" data-act="restore" data-id="${b.id}">되돌리기</button><button class="sm danger" data-act="destroy" data-id="${b.id}">완전히 삭제</button>`;
   else if (b.archived_at) actions = `<button class="sm" data-act="unarchive" data-id="${b.id}">보관 해제</button><button class="sm" data-act="board-menu" data-id="${b.id}">⋯</button>`;
-  else actions = `<button class="sm" data-act="copy-link" data-id="${b.id}" title="학생 링크 복사">🔗 링크</button><button class="sm" data-act="qr" data-id="${b.id}">📱 QR</button><span class="sp"></span><button class="sm" data-act="board-menu" data-id="${b.id}">⋯</button>`;
+  else actions = `<button class="sm" data-act="copy-link" data-id="${b.id}" title="학생 링크 복사">🔗 링크</button><button class="sm" data-act="qr" data-id="${b.id}">📱 QR</button><button class="sm" data-act="move-board" data-id="${b.id}" title="다른 폴더로 옮기기">📁 옮기기</button><span class="sp"></span><button class="sm" data-act="board-menu" data-id="${b.id}" title="더 보기">⋯</button>`;
   return `<div class="bcard" data-act="open-board" data-id="${b.id}" ${b.deleted_at ? '' : `draggable="true" data-drag="board:${b.id}"`}>
     <div class="bthumb" style="background:${esc(b.background || BGS[0])}">
       <span class="badge ${b.link_status}">${LINK_LABEL[b.link_status]}</span>
-      <div class="mini"><i></i><i></i><i></i></div>
+      <span class="badge" style="position:absolute;left:10px;top:10px">${LAYOUTS[b.layout]?.icon || ""} ${LAYOUTS[b.layout]?.name || ""}</span><div class="mini"><i></i><i></i><i></i></div>
     </div>
     <div class="bbody">
       <div class="btitle">${esc(b.title)}</div>
       <div class="bmeta">${path ? '📁 ' + esc(path) + ' · ' : ''}글 ${c.all}${c.pending ? ` · <span class="badge pending">승인 대기 ${c.pending}</span>` : ''}</div>
       <div class="bact">${actions}</div>
     </div></div>`;
+}
+function folderCards(list){
+  const lb = liveBoards();
+  return `<div class="grid" style="margin-bottom:8px">${list.map(s => `<div class="fcard" data-act="open-folder" data-id="${s.id}" draggable="true" data-drag="folder:${s.id}" data-drop="folder:${s.id}"><span class="ico">📁</span><div><div class="jua" style="font-size:17px">${esc(s.name)}</div><div class="muted" style="font-size:12px">보드 ${lb.filter(b => b.folder_id === s.id).length}개${childFolders(s.id).length ? ` · 폴더 ${childFolders(s.id).length}개` : ''}</div></div></div>`).join('')}</div>`;
 }
 function boardGrid(list, emptyMsg){
   if (!list.length) return `<div class="empty"><div class="big">🧺</div>${emptyMsg}</div>`;
@@ -469,7 +499,8 @@ function boardGrid(list, emptyMsg){
 function renderMain(cls){
   const v = S.view, lb = liveBoards();
   if (v.t === 'all') return `
-    <div class="mh"><h2>모든 보드</h2><span class="sp"></span><button class="main" data-act="new-board">＋ 새 보드</button></div>
+    <div class="mh"><h2>모든 보드</h2><span class="sp"></span><button data-act="new-folder">📁 ＋ 새 폴더</button><button class="main" data-act="new-board">＋ 새 보드</button></div>
+    ${childFolders(null).length ? `<div class="secttl">폴더</div>${folderCards(childFolders(null))}<div class="secttl">보드</div>` : ''}
     ${boardGrid(lb, '아직 보드가 없어요.<br>오른쪽 위 <b>＋ 새 보드</b>로 첫 보드를 만들어 보세요!')}`;
 
   if (v.t === 'folder'){
@@ -484,9 +515,9 @@ function renderMain(cls){
         <button class="sm ghost" data-act="move-folder" data-id="${f.id}">↪ 옮기기</button>
         <button class="sm ghost danger" data-act="delete-folder" data-id="${f.id}">삭제</button>
         <span class="sp"></span>
-        <button class="sm" data-act="new-folder" data-id="${f.id}">＋ 하위 폴더</button>
+        <button data-act="new-folder" data-id="${f.id}">📁 ＋ 하위 폴더</button>
         <button class="main" data-act="new-board" data-id="${f.id}">＋ 새 보드</button></div>
-      ${subs.length ? `<div class="grid" style="margin-bottom:18px">${subs.map(s => `<div class="fcard" data-act="open-folder" data-id="${s.id}" draggable="true" data-drag="folder:${s.id}" data-drop="folder:${s.id}"><span class="ico">📁</span><div><div class="jua" style="font-size:17px">${esc(s.name)}</div><div class="muted" style="font-size:12px">보드 ${lb.filter(b => b.folder_id === s.id).length}개</div></div></div>`).join('')}</div>` : ''}
+      ${subs.length ? `<div class="secttl">하위 폴더</div>${folderCards(subs)}<div class="secttl">보드</div>` : ''}
       ${boardGrid(lb.filter(b => b.folder_id === f.id), '이 폴더는 비어 있어요.<br>새 보드를 만들거나 다른 보드를 끌어다 놓아 보세요.')}`;
   }
   if (v.t === 'none') return `
@@ -604,7 +635,7 @@ function renderDetail(){
     <div class="info">
       <div class="infobox">📝 글 <b>${d.posts.length}</b>개${pending.length ? ` · <span class="badge pending">승인 대기 ${pending.length}</span> <button class="sm" data-act="approve-all">모두 승인</button>` : ''}</div>
       <div class="infobox">🙋 아직 안 쓴 학생 ${d.missing.length ? d.missing.map(m => `<span class="chip">${m.number} ${esc(m.name)}</span>`).join('') : '<b>없음 🎉</b>'}</div>
-      <div class="infobox muted">${LAYOUT_LABEL[b.layout]} · ${b.require_approval ? '승인 후 공개' : '바로 공개'} · 이름 ${b.show_names ? '보임' : '숨김'} · 학생 이동 ${b.allow_student_move ? '가능' : '불가'}</div>
+      <div class="infobox muted">${LAYOUT_LABEL[b.layout]} · ${b.require_approval ? '승인 후 공개' : '바로 공개'} · 이름 ${b.show_names ? '보임' : '숨김'} ${b.layout === 'columns' ? ` · 학생 이동 ${b.allow_student_move ? '가능' : '불가'}` : ''}</div>
     </div>`;
   const cols = [...d.sections];
   if (d.posts.some(p => !p.section_id || !cols.some(c => c.id === p.section_id))) cols.push({ id:null, title:'칼럼 없음' });
@@ -620,10 +651,13 @@ function renderDetail(){
         ${p.status === 'hidden' ? `<button class="sm" data-act="post-status" data-id="${p.id}" data-s="approved">보이기</button>` : `<button class="sm ghost" data-act="post-status" data-id="${p.id}" data-s="hidden">숨기기</button>`}
         <button class="sm ghost danger" data-act="post-delete" data-id="${p.id}">삭제</button>
       </div>
-      ${d.sections.length > 1 ? `<div class="pf">칼럼 <select data-move-post="${p.id}">${secOpts(p.section_id)}</select></div>` : ''}
+      ${b.layout === 'columns' && d.sections.length > 1 ? `<div class="pf">칼럼 <select data-move-post="${p.id}">${secOpts(p.section_id)}</select></div>` : ''}
     </div>`;
   };
-  const board = `<div class="cols" style="background:${esc(b.background || BGS[0])}">
+  const free = b.layout !== 'columns';
+  const board = free
+    ? `<div class="freeboard ${b.layout}" style="background:${esc(b.background || BGS[0])}">${d.posts.map(postHtml).join('') || '<div class="muted" style="padding:10px">아직 글이 없어요</div>'}</div>`
+    : `<div class="cols" style="background:${esc(b.background || BGS[0])}">
     ${cols.map(c => {
       const list = d.posts.filter(p => c.id ? p.section_id === c.id : (!p.section_id || !d.sections.some(s => s.id === p.section_id)));
       return `<div class="col"><div class="colh"><span>${esc(c.title)}</span><span class="muted" style="font-family:'Gowun Dodum';font-size:13px">${list.length}</span></div>${list.map(postHtml).join('') || '<div class="muted" style="font-size:13px;padding:6px">아직 글이 없어요</div>'}</div>`;
@@ -658,29 +692,55 @@ function folderOptions(sel){
   return `<option value="">(폴더 밖)</option>` + flatFolders().map(({ f, depth }) =>
     `<option value="${f.id}" ${f.id === sel ? 'selected' : ''}>${'　'.repeat(depth)}📁 ${esc(f.name)}</option>`).join('');
 }
-function boardFormHtml(b, sections){
+const LAYOUTS = {
+  columns: { name:'칼럼형', icon:'🗂️', desc:'주제별로 칸을 나눠 모아요', ex:'예) 좋은 점 / 아쉬운 점 / 궁금한 점' },
+  grid:    { name:'그리드형', icon:'🔲', desc:'카드가 바둑판처럼 같은 크기로 줄 서요', ex:'예) 오늘 배운 점, 작품 전시, 자기소개' },
+  wall:    { name:'담벼락형', icon:'🧱', desc:'글 길이대로 벽돌처럼 차곡차곡 쌓여요', ex:'예) 자유롭게 소감 나누기, 칭찬 릴레이' }
+};
+function layoutPreview(k){
+  if (k === 'columns') return `<div class="pv pv-col">${[3,2,3].map(n => `<div>${'<i></i>'.repeat(n)}</div>`).join('')}</div>`;
+  if (k === 'grid') return `<div class="pv pv-grid">${'<i></i>'.repeat(6)}</div>`;
+  return `<div class="pv pv-wall"><div><i style="height:22px"></i><i style="height:12px"></i></div><div><i style="height:12px"></i><i style="height:24px"></i></div><div><i style="height:18px"></i><i style="height:16px"></i></div></div>`;
+}
+function layoutCard(k, act, on){
+  const L = LAYOUTS[k];
+  return `<button type="button" class="lay ${on ? 'on' : ''}" data-act="${act}" data-id="${k}">${layoutPreview(k)}<div><div class="jua" style="font-size:19px">${L.icon} ${L.name}</div><div style="font-size:13px">${L.desc}</div><div class="muted" style="font-size:12px;margin-top:2px">${L.ex}</div></div></button>`;
+}
+// 모양에 따라 보이는 칸이 바뀌는 설정 폼
+function boardFormHtml(b, sections, layout){
   const bg = b?.background || BGS[0];
+  const isCol = layout === 'columns';
   return `
-    <label class="f">보드 제목</label><input name="title" value="${esc(b?.title || '')}" placeholder="이야기 속 인물에게 한마디" required>
-    <label class="f">설명 (학생에게 보이는 안내)</label><input name="desc" value="${esc(b?.description || '')}" placeholder="인상 깊은 장면과 그 이유를 써 보세요">
+    <input type="hidden" name="layout" value="${layout}">
+    <div class="laybar">
+      ${b ? `<div class="muted" style="font-size:13px;margin-bottom:6px">모양</div><div class="seg" style="width:100%">${Object.keys(LAYOUTS).map(k => `<button type="button" style="flex:1" class="${k === layout ? 'on' : ''}" data-act="switch-layout" data-id="${k}">${LAYOUTS[k].icon} ${LAYOUTS[k].name}</button>`).join('')}</div>`
+          : `<div class="row">${layoutPreview(layout)}<div><div class="jua" style="font-size:18px">${LAYOUTS[layout].icon} ${LAYOUTS[layout].name}</div><div class="muted" style="font-size:12px">${LAYOUTS[layout].desc}</div></div><span class="sp"></span><button type="button" class="sm ghost" data-act="back-layout">모양 바꾸기</button></div>`}
+    </div>
+    <label class="f">보드 제목</label><input name="title" value="${esc(b?.title || '')}" placeholder="${isCol ? '토끼와 거북이, 어떻게 생각해?' : '오늘 배운 점 한 줄'}" required>
+    <label class="f">설명 (학생에게 보이는 안내)</label><input name="desc" value="${esc(b?.description || '')}" placeholder="${isCol ? '알맞은 칸에 내 생각을 붙여 보세요' : '한 장에 하나씩 자유롭게 써 보세요'}">
     ${b ? '' : `<label class="f">폴더</label><select name="folder">${folderOptions(S.view.t === 'folder' ? S.view.id : null)}</select>`}
-    <label class="f">칼럼</label>
-    <div id="secList">${(sections || [{ title:'생각 나누기' }]).map(s => secRow(s)).join('')}</div>
-    <button type="button" class="sm" data-act="sec-add">＋ 칼럼 추가</button>
-    <label class="f">모양</label>
-    <select name="layout">${Object.entries(LAYOUT_LABEL).map(([k, v]) => `<option value="${k}" ${b?.layout === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+
+    <div class="only-col" ${isCol ? '' : 'hidden'}>
+      <label class="f">칼럼 (칸 이름)</label>
+      <div id="secList">${(sections && sections.length ? sections : [{ title:'좋은 점' }, { title:'아쉬운 점' }, { title:'궁금한 점' }]).map(s => secRow(s)).join('')}</div>
+      <button type="button" class="sm" data-act="sec-add">＋ 칼럼 추가</button>
+    </div>
+    <div class="only-free muted" style="font-size:13px;margin-top:12px" ${isCol ? 'hidden' : ''}>📌 칸 나누기 없이 모든 카드가 한 판에 모여요.</div>
+
     <label class="f">배경</label>
     <div class="swatches">${BGS.map(x => `<div class="sw ${x === bg ? 'on' : ''}" style="background:${x}" data-act="pick-bg" data-id="${esc(x)}"></div>`).join('')}</div>
     <input type="hidden" name="bg" value="${esc(bg)}">
     <label class="f">규칙</label>
     <label class="chk"><input type="checkbox" name="appr" ${b?.require_approval ? 'checked' : ''}> 선생님이 승인한 글만 공개</label>
     <label class="chk"><input type="checkbox" name="names" ${b ? (b.show_names ? 'checked' : '') : 'checked'}> 친구들에게 작성자 이름 보이기</label>
-    <label class="chk"><input type="checkbox" name="move" ${b ? (b.allow_student_move ? 'checked' : '') : 'checked'}> 학생이 자기 글을 다른 칼럼으로 옮기기</label>`;
+    <label class="chk only-col" ${isCol ? '' : 'hidden'}><input type="checkbox" name="move" ${b ? (b.allow_student_move ? 'checked' : '') : 'checked'}> 학생이 자기 글을 다른 칼럼으로 옮기기</label>`;
 }
 function secRow(s){
   return `<div class="secrow" data-sid="${s.id || ''}"><input value="${esc(s.title)}" placeholder="칼럼 이름"><button type="button" class="sm ghost" data-act="sec-up">↑</button><button type="button" class="sm ghost" data-act="sec-down">↓</button><button type="button" class="sm ghost danger" data-act="sec-del">✕</button></div>`;
 }
+// 칼럼형이 아니면 null (칼럼은 건드리지 않음)
 function readSections(m){
+  if (m.querySelector('[name=layout]').value !== 'columns') return null;
   return [...m.querySelectorAll('#secList .secrow')].map((r, i) => ({ id: r.dataset.sid || null, title: r.querySelector('input').value.trim(), sort_order: i + 1 })).filter(s => s.title);
 }
 function readBoardForm(f){
@@ -689,14 +749,23 @@ function readBoardForm(f){
     background: f.bg.value, require_approval: f.appr.checked, show_names: f.names.checked, allow_student_move: f.move.checked
   };
 }
+// 새 보드: 1단계 모양 고르기 → 2단계 모양에 맞는 설정
 function newBoard(folderId){
   if (folderId) S.view = { t:'folder', id: folderId };
-  openModal(`<h3>✨ 새 보드</h3><form>${boardFormHtml(null)}
+  openModal(`<h3>✨ 어떤 모양의 보드를 만들까요?</h3>
+    <div class="muted" style="font-size:13px">나중에 설정에서 바꿀 수도 있어요</div>
+    <div style="margin-top:14px">${Object.keys(LAYOUTS).map(k => layoutCard(k, 'choose-layout', false)).join('')}</div>
+    <div class="mfoot"><button type="button" onclick="closeModal()">취소</button></div>`);
+}
+function newBoardStep2(layout){
+  openModal(`<h3>✨ 새 보드</h3><form>${boardFormHtml(null, null, layout)}
     <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">만들기</button></div></form>`, m => {
     m.querySelector('form').onsubmit = async e => {
       e.preventDefault();
-      const f = e.target, secs = readSections(m);
-      if (!secs.length) return toast('칼럼을 하나 이상 만들어 주세요', true);
+      const f = e.target;
+      let secs = readSections(m);
+      if (secs && !secs.length) return toast('칼럼을 하나 이상 만들어 주세요', true);
+      if (!secs) secs = [{ title:'전체', sort_order:1 }];
       f.querySelector('.main').disabled = true;
       try {
         const [b] = await q(sb.from('boards').insert({ ...readBoardForm(f), class_id: S.classId, folder_id: f.folder.value || null }).select());
@@ -709,23 +778,27 @@ function newBoard(folderId){
 async function boardSettings(id){
   const b = boardById(id);
   const sections = await q(sb.from('sections').select('*').eq('board_id', id).order('sort_order'));
-  openModal(`<h3>⚙️ 보드 설정</h3><form>${boardFormHtml(b, sections.length ? sections : [{ title:'생각 나누기' }])}
+  openModal(`<h3>⚙️ 보드 설정</h3><form>${boardFormHtml(b, sections, b.layout)}
     <label class="f">학생 링크</label>
     <div class="row"><span class="muted" style="font-size:13px">코드 <b>${esc(b.share_code)}</b></span><button type="button" class="sm" data-act="regen" data-id="${b.id}">♻️ 링크 새로 만들기</button></div>
     <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">저장</button></div></form>`, m => {
     m.querySelector('form').onsubmit = async e => {
       e.preventDefault();
       const f = e.target, secs = readSections(m);
-      if (!secs.length) return toast('칼럼을 하나 이상 남겨 주세요', true);
+      if (secs && !secs.length) return toast('칼럼을 하나 이상 남겨 주세요', true);
       f.querySelector('.main').disabled = true;
       try {
         await q(sb.from('boards').update(readBoardForm(f)).eq('id', id));
-        const keep = new Set(secs.filter(s => s.id).map(s => s.id));
-        const gone = sections.filter(s => !keep.has(s.id)).map(s => s.id);
-        if (gone.length) await q(sb.from('sections').delete().in('id', gone));
-        for (const s of secs){
-          if (s.id) await q(sb.from('sections').update({ title: s.title, sort_order: s.sort_order }).eq('id', s.id));
-          else await q(sb.from('sections').insert({ board_id: id, title: s.title, sort_order: s.sort_order }));
+        if (secs){
+          const keep = new Set(secs.filter(s => s.id).map(s => s.id));
+          const gone = sections.filter(s => !keep.has(s.id)).map(s => s.id);
+          if (gone.length) await q(sb.from('sections').delete().in('id', gone));
+          for (const s of secs){
+            if (s.id) await q(sb.from('sections').update({ title: s.title, sort_order: s.sort_order }).eq('id', s.id));
+            else await q(sb.from('sections').insert({ board_id: id, title: s.title, sort_order: s.sort_order }));
+          }
+        } else if (!sections.length){
+          await q(sb.from('sections').insert({ board_id: id, title:'전체', sort_order:1 }));
         }
         closeModal(); toast('저장했어요'); ping(); await refresh();
       } catch(err){ f.querySelector('.main').disabled = false; }
@@ -761,13 +834,27 @@ function boardMenu(id){
     <button class="danger" data-act="trash" data-id="${id}">🗑️ 휴지통으로</button>
   </div><div class="mfoot"><button onclick="closeModal()">닫기</button></div>`);
 }
+// 폴더 고르기: 목록에서 눌러 고르고, 없으면 바로 새로 만들기
 function pickFolder(title, current, exclude){
   return new Promise(res => {
-    const opts = `<option value="">(맨 위 / 폴더 밖)</option>` + flatFolders().filter(({ f }) => !exclude || !isInside(f.id, exclude)).map(({ f, depth }) =>
-      `<option value="${f.id}" ${f.id === current ? 'selected' : ''}>${'　'.repeat(depth)}📁 ${esc(f.name)}</option>`).join('');
-    openModal(`<h3>${esc(title)}</h3><form><select name="f">${opts}</select><div class="mfoot"><button type="button" data-x>취소</button><button class="main">옮기기</button></div></form>`, m => {
+    const list = flatFolders().filter(({ f }) => !exclude || !isInside(f.id, exclude));
+    const item = (id, label, depth=0) => `<button type="button" class="pick ${id === (current || '') ? 'on' : ''}" data-v="${id}" style="padding-left:${14 + depth*18}px">${label}${id === (current || '') ? ' <span class="muted" style="font-size:12px">(지금 여기)</span>' : ''}</button>`;
+    openModal(`<h3>${esc(title)}</h3>
+      <div class="picklist">
+        ${item('', '📄 폴더 밖 (맨 위)')}
+        ${list.map(({ f, depth }) => item(f.id, `📁 ${esc(f.name)}`, depth)).join('')}
+      </div>
+      <form class="row" style="margin-top:12px;flex-wrap:nowrap"><input name="n" placeholder="새 폴더 이름 (예: 국어 3단원)"><button class="main" style="white-space:nowrap">＋ 만들어서 옮기기</button></form>
+      <div class="mfoot"><button type="button" data-x>취소</button></div>`, m => {
       m.querySelector('[data-x]').onclick = () => { closeModal(); res(undefined); };
-      m.querySelector('form').onsubmit = e => { e.preventDefault(); const v = e.target.f.value || null; closeModal(); res(v); };
+      m.querySelectorAll('.pick').forEach(b => b.onclick = () => { closeModal(); res(b.dataset.v || null); });
+      m.querySelector('form').onsubmit = async e => {
+        e.preventDefault();
+        const name = e.target.n.value.trim();
+        if (!name) return toast('새 폴더 이름을 넣어 주세요', true);
+        const [f] = await q(sb.from('folders').insert({ name, class_id: S.classId, parent_id: null, sort_order: Date.now() / 1e12 }).select());
+        S.folders.push(f); closeModal(); res(f.id);
+      };
     });
   });
 }
@@ -791,6 +878,7 @@ document.addEventListener('dragstart', e => {
   if (!el) return;
   S.dragging = el.dataset.drag;
   e.dataTransfer.setData('text/plain', S.dragging); e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => document.body.classList.add('is-dragging'), 0);
 });
 document.addEventListener('dragover', e => {
   const t = e.target.closest && e.target.closest('[data-drop]');
@@ -807,6 +895,7 @@ document.addEventListener('dragleave', e => {
 document.addEventListener('drop', async e => {
   const t = e.target.closest && e.target.closest('[data-drop]');
   document.querySelectorAll('.dropping').forEach(x => x.classList.remove('dropping'));
+  document.body.classList.remove('is-dragging');
   const src = S.dragging; S.dragging = null;
   if (!t || !src) return;
   e.preventDefault();
@@ -817,7 +906,7 @@ document.addEventListener('drop', async e => {
     else if (kind === 'folder' && id !== target){ await moveFolder(id, target); }
   } catch(err){}
 });
-document.addEventListener('dragend', () => { S.dragging = null; document.querySelectorAll('.dropping').forEach(x => x.classList.remove('dropping')); });
+document.addEventListener('dragend', () => { S.dragging = null; document.body.classList.remove('is-dragging'); document.querySelectorAll('.dropping').forEach(x => x.classList.remove('dropping')); });
 
 // ---------- 버튼 동작 ----------
 const ACT = {
@@ -849,6 +938,15 @@ const ACT = {
     S.view = { t: f.parent_id ? 'folder' : 'all', id: f.parent_id }; await refresh();
   },
   'new-board': id => newBoard(id),
+  'choose-layout': k => newBoardStep2(k),
+  'back-layout': () => newBoard(),
+  'switch-layout': (k, el) => {
+    const m = el.closest('.modal');
+    m.querySelector('[name=layout]').value = k;
+    m.querySelectorAll('[data-act=switch-layout]').forEach(x => x.classList.toggle('on', x.dataset.id === k));
+    m.querySelectorAll('.only-col').forEach(x => x.hidden = k !== 'columns');
+    m.querySelectorAll('.only-free').forEach(x => x.hidden = k === 'columns');
+  },
   'open-board': id => { closeModal(); openBoard(id); },
   'board-menu': id => boardMenu(id),
   'board-settings': id => boardSettings(id),
