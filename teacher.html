@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
+<title>우리반 보드 · 선생님</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap">
+<style>
+:root{
+  --cream:#FFF9F0; --paper:#FFFFFF; --ink:#3A3550; --ink2:#7A7590; --line:#EEE6DA;
+  --main:#7C8CFF; --main-soft:#E8EBFF; --danger:#F06A6A; --danger-soft:#FFE6E6; --ok:#3DBE8B; --ok-soft:#DDF6EC;
+  --sky:#D6ECFF; --mint:#D3F5E6; --lemon:#FFF4BF; --peach:#FFE0D1; --lavender:#E8DFFF; --pink:#FFDDEA;
+  --r:18px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--cream);color:var(--ink);font-family:'Gowun Dodum',system-ui,sans-serif;font-size:15px}
+h1,h2,h3,.jua{font-family:'Jua',sans-serif;font-weight:400;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;border:1.5px solid var(--line);background:var(--paper);border-radius:12px;padding:8px 14px;transition:transform .1s,background .15s}
+button:hover{background:#FBF6EE}
+button:active{transform:scale(.97)}
+button.main{background:var(--main);border-color:var(--main);color:#fff}
+button.main:hover{background:#6B7BF0}
+button.danger{color:var(--danger);border-color:#F8C9C9}
+button.danger.fill{background:var(--danger);color:#fff;border-color:var(--danger)}
+button.ghost{border-color:transparent;background:transparent}
+button.ghost:hover{background:#F4EDE2}
+button.sm{padding:5px 10px;font-size:13px;border-radius:10px}
+input,select,textarea{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:9px 12px;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--main)}
+textarea{resize:vertical;min-height:90px}
+label.f{display:block;margin:12px 0 6px;color:var(--ink2);font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--ink2)}
+.sp{flex:1}
+
+/* 상단 */
+.top{display:flex;align-items:center;gap:12px;padding:12px 20px;background:var(--paper);border-bottom:1.5px solid var(--line);position:sticky;top:0;z-index:5}
+.logo{font-family:'Jua';font-size:22px;display:flex;align-items:center;gap:8px}
+.logo .bear{font-size:26px}
+.top select{width:auto;min-width:160px}
+
+/* 레이아웃 */
+.layout{display:grid;grid-template-columns:260px 1fr;min-height:calc(100vh - 62px)}
+.side{background:var(--paper);border-right:1.5px solid var(--line);padding:16px 12px;overflow:auto}
+.content{padding:24px 28px;min-width:0}
+.nav{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:12px;cursor:pointer;user-select:none;border:2px dashed transparent}
+.nav:hover{background:#FBF6EE}
+.nav.on{background:var(--main-soft);color:#4B57C8}
+.nav .cnt{margin-left:auto;font-size:12px;color:var(--ink2)}
+.nav .caret{width:16px;text-align:center;color:var(--ink2);font-size:11px}
+.sideh{display:flex;align-items:center;justify-content:space-between;margin:16px 6px 6px;color:var(--ink2);font-size:13px}
+.dropping{border-color:var(--main)!important;background:var(--main-soft)!important}
+.hr{height:1.5px;background:var(--line);margin:14px 4px}
+
+/* 메인 헤더 */
+.mh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.mh h2{font-size:26px}
+.crumb{color:var(--ink2);font-size:13px;margin-bottom:4px}
+.crumb span{cursor:pointer}
+.crumb span:hover{text-decoration:underline}
+
+/* 카드 그리드 */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px}
+.fcard{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--paper);border:2px dashed var(--line);border-radius:var(--r);cursor:pointer}
+.fcard:hover{border-color:#D9CFC0}
+.fcard .ico{font-size:24px}
+.bcard{background:var(--paper);border:1.5px solid var(--line);border-radius:var(--r);overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.bcard:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(120,100,80,.10)}
+.bthumb{height:92px;position:relative;display:flex;align-items:flex-end;padding:10px}
+.bthumb .mini{display:flex;gap:5px}
+.bthumb .mini i{display:block;width:26px;height:20px;border-radius:6px;background:rgba(255,255,255,.75)}
+.badge{display:inline-block;font-size:12px;padding:3px 9px;border-radius:999px;background:#fff;color:var(--ink2)}
+.badge.open{background:var(--ok-soft);color:#1E8A5F}
+.badge.readonly{background:var(--lemon);color:#8A6A00}
+.badge.closed{background:#EEE;color:#777}
+.badge.pending{background:var(--peach);color:#B4552A}
+.bthumb .badge{position:absolute;top:10px;right:10px}
+.bbody{padding:12px 14px 12px}
+.btitle{font-family:'Jua';font-size:18px;margin-bottom:4px;word-break:keep-all}
+.bmeta{font-size:12px;color:var(--ink2);margin-bottom:10px}
+.bact{display:flex;gap:6px}
+.empty{text-align:center;padding:50px 20px;color:var(--ink2);background:var(--paper);border:2px dashed var(--line);border-radius:var(--r)}
+.empty .big{font-size:46px;margin-bottom:8px}
+
+/* 보드 상세 */
+.seg{display:inline-flex;background:#F4EDE2;border-radius:12px;padding:3px}
+.seg button{border:0;background:transparent;padding:6px 12px;border-radius:9px;font-size:13px}
+.seg button.on{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.info{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.infobox{background:var(--paper);border:1.5px solid var(--line);border-radius:14px;padding:10px 14px;font-size:13px}
+.chip{display:inline-block;background:#F4EDE2;border-radius:999px;padding:2px 9px;margin:2px;font-size:12px}
+.cols{display:flex;gap:16px;overflow-x:auto;padding:16px;border-radius:22px;align-items:flex-start;min-height:300px}
+.col{flex:0 0 270px;background:rgba(255,255,255,.55);border-radius:18px;padding:12px}
+.colh{font-family:'Jua';font-size:18px;margin:2px 4px 10px;display:flex;justify-content:space-between}
+.post{background:#fff;border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:0 2px 6px rgba(80,60,40,.07)}
+.post.hidden{opacity:.5}
+.post .who{font-size:12px;color:var(--ink2);margin-bottom:6px;display:flex;gap:6px;align-items:center}
+.post .txt{white-space:pre-wrap;word-break:break-word;line-height:1.55}
+.post .lnk{display:block;margin-top:6px;font-size:12px;color:#4B57C8;word-break:break-all}
+.post .pf{display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap;font-size:12px;color:var(--ink2)}
+.post .pf select{width:auto;padding:4px 8px;font-size:12px;border-radius:9px}
+
+/* 표 */
+table.t{width:100%;border-collapse:separate;border-spacing:0;background:var(--paper);border:1.5px solid var(--line);border-radius:var(--r);overflow:hidden}
+table.t th,table.t td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left}
+table.t th{font-weight:400;color:var(--ink2);font-size:13px;background:#FDF9F3}
+table.t tr:last-child td{border-bottom:0}
+table.t input{padding:6px 9px;border-radius:9px}
+
+/* 모달 */
+.mbg{position:fixed;inset:0;background:rgba(58,53,80,.35);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+.modal{background:var(--paper);border-radius:24px;padding:24px;width:min(520px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.18)}
+.modal h3{font-size:22px;margin-bottom:6px}
+.mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:42px;height:42px;border-radius:12px;border:3px solid transparent;cursor:pointer}
+.sw.on{border-color:var(--ink)}
+.chk{display:flex;align-items:center;gap:8px;margin:8px 0;cursor:pointer}
+.chk input{width:18px;height:18px;accent-color:var(--main)}
+.secrow{display:flex;gap:6px;margin-bottom:6px}
+.menu button{display:block;width:100%;text-align:left;margin-bottom:6px}
+.qrbox{text-align:center}
+.qrbox #qr{display:inline-block;padding:14px;background:#fff;border-radius:18px;border:1.5px solid var(--line);margin:14px 0}
+.qrbox #qr img,.qrbox #qr canvas{display:block}
+.qrurl{font-size:13px;color:var(--ink2);word-break:break-all}
+
+/* 로그인 */
+.auth{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth .card{background:var(--paper);border-radius:28px;padding:34px 30px;width:min(400px,100%);box-shadow:0 14px 40px rgba(120,100,80,.12);text-align:center}
+.auth .card form{text-align:left}
+.auth .bear{font-size:56px}
+.tabs{display:flex;background:#F4EDE2;border-radius:14px;padding:4px;margin:18px 0 6px}
+.tabs button{flex:1;border:0;background:transparent;border-radius:11px}
+.tabs button.on{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:14px;z-index:99;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+.toast.err{background:var(--danger)}
+.loading{padding:60px;text-align:center;color:var(--ink2)}
+
+@media (max-width:820px){
+  .layout{grid-template-columns:1fr}
+  .side{border-right:0;border-bottom:1.5px solid var(--line)}
+  .content{padding:18px}
+}
+@media print{
+  body.print-qr > *:not(#modal-root){display:none!important}
+  body.print-qr .mbg{position:static;background:none}
+  body.print-qr .modal{box-shadow:none;width:100%;max-height:none}
+  body.print-qr .mfoot{display:none}
+  body.print-qr .qrbox h3{font-size:40px}
+}
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">불러오는 중…</div></div>
+<div id="modal-root"></div>
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="config.js"></script>
+<script>
+// =====================================================================
+// 우리반 보드 — 교사 화면
+// =====================================================================
+const CFG = window.CLASSBOARD_CONFIG;
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY);
+
+const COLORS = {white:'#FFFFFF', sky:'#D6ECFF', mint:'#D3F5E6', lemon:'#FFF4BF', peach:'#FFE0D1', lavender:'#E8DFFF', pink:'#FFDDEA'};
+const BGS = [
+  'linear-gradient(135deg,#a1c4fd,#c2e9fb)',
+  'linear-gradient(135deg,#d4fc79,#96e6a1)',
+  'linear-gradient(135deg,#fddb92,#d1fdff)',
+  'linear-gradient(135deg,#fbc2eb,#a6c1ee)',
+  'linear-gradient(135deg,#ffecd2,#fcb69f)',
+  'linear-gradient(135deg,#e0c3fc,#8ec5fc)',
+  '#FFF4BF', '#D3F5E6', '#FFE0D1'
+];
+const LINK_LABEL = {open:'열림', readonly:'보기만', closed:'닫힘'};
+const LAYOUT_LABEL = {columns:'칼럼형', wall:'담벼락형', grid:'그리드형'};
+
+const S = {
+  user:null, classes:[], classId:null,
+  folders:[], boards:[], students:[], counts:{},
+  view:{t:'all'}, closedFolders:new Set(),
+  detail:null, dragging:null, channel:null, timer:null
+};
+
+// ---------- 도우미 ----------
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const studentUrl = code => new URL('b.html?b=' + code, location.href).href;
+const store = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+};
+
+function nice(m){
+  m = String(m || '');
+  if (/^[A-Z_]+: /.test(m)) return m.slice(m.indexOf(': ') + 2);
+  if (m.includes('Invalid login')) return '이메일이나 비밀번호가 맞지 않아요';
+  if (m.includes('already registered')) return '이미 가입된 이메일이에요';
+  if (m.includes('Email not confirmed')) return '메일함에서 인증 링크를 먼저 눌러 주세요';
+  if (m.includes('Password should be')) return '비밀번호는 6자 이상이어야 해요';
+  if (m.includes('duplicate key') && m.includes('students')) return '같은 번호의 학생이 이미 있어요';
+  return m;
+}
+async function q(p){
+  const { data, error } = await p;
+  if (error){ toast(nice(error.message), true); throw error; }
+  return data;
+}
+let toastTimer;
+function toast(msg, err=false){
+  const t = $('#toast');
+  t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.className = 'toast', 2400);
+}
+async function copyText(text, okMsg='복사했어요'){
+  try { await navigator.clipboard.writeText(text); toast(okMsg); }
+  catch(e){ await promptBox('아래 주소를 길게 눌러 복사하세요', text); }
+}
+function parseRoster(text){
+  return String(text || '').split(/\n/).map(l => l.trim()).filter(Boolean).map(l => {
+    const m = l.match(/^(\d+)\s*(?:번)?[\s.,)\t]*\s*(.+)$/);
+    return m ? { number: parseInt(m[1], 10), name: m[2].trim() } : null;
+  }).filter(Boolean);
+}
+
+// ---------- 모달 ----------
+function openModal(html, onMount){
+  const root = $('#modal-root');
+  root.innerHTML = `<div class="mbg"><div class="modal">${html}</div></div>`;
+  const bg = root.firstElementChild;
+  bg.addEventListener('mousedown', e => { if (e.target === bg) closeModal(); });
+  onMount && onMount(bg.firstElementChild);
+  const first = bg.querySelector('input,textarea,select');
+  first && setTimeout(() => first.focus(), 30);
+}
+function closeModal(){ $('#modal-root').innerHTML = ''; document.body.classList.remove('print-qr'); }
+function confirmBox(msg, okText='확인', danger=false){
+  return new Promise(res => {
+    openModal(`<h3>${esc(msg)}</h3><div class="mfoot"><button data-x>취소</button><button class="${danger ? 'danger fill' : 'main'}" data-ok>${esc(okText)}</button></div>`, m => {
+      m.querySelector('[data-x]').onclick = () => { closeModal(); res(false); };
+      m.querySelector('[data-ok]').onclick = () => { closeModal(); res(true); };
+    });
+  });
+}
+function promptBox(title, value=''){
+  return new Promise(res => {
+    openModal(`<h3>${esc(title)}</h3><form><input name="v" value="${esc(value)}"><div class="mfoot"><button type="button" data-x>취소</button><button class="main">확인</button></div></form>`, m => {
+      m.querySelector('[data-x]').onclick = () => { closeModal(); res(null); };
+      m.querySelector('form').onsubmit = e => { e.preventDefault(); const v = e.target.v.value.trim(); closeModal(); res(v || null); };
+    });
+  });
+}
+
+// ---------- 로그인 ----------
+let booted = false;
+sb.auth.onAuthStateChange((ev, session) => {
+  const u = session?.user || null;
+  if (!booted || (u?.id) !== (S.user?.id)){
+    booted = true; S.user = u;
+    setTimeout(boot, 0);
+  }
+});
+
+async function boot(){
+  stopLive();
+  if (!S.user) return renderAuth('login');
+  $('#app').innerHTML = '<div class="loading">불러오는 중…</div>';
+  await loadClasses();
+}
+
+function renderAuth(mode){
+  $('#app').innerHTML = `
+  <div class="auth"><div class="card">
+    <div class="bear">🧸</div>
+    <h1 style="font-size:28px">우리반 보드</h1>
+    <div class="muted">선생님 전용 관리 화면</div>
+    <div class="tabs">
+      <button class="${mode==='login'?'on':''}" data-act="auth-mode" data-id="login">로그인</button>
+      <button class="${mode==='signup'?'on':''}" data-act="auth-mode" data-id="signup">처음이에요 (가입)</button>
+    </div>
+    <form id="authf">
+      ${mode==='signup' ? '<label class="f">이름</label><input name="name" placeholder="김선생" required>' : ''}
+      <label class="f">이메일</label><input name="email" type="email" placeholder="teacher@school.kr" required autocomplete="email">
+      <label class="f">비밀번호 (6자 이상)</label><input name="pw" type="password" required minlength="6" autocomplete="${mode==='login'?'current-password':'new-password'}">
+      <button class="main" style="width:100%;margin-top:18px;padding:12px">${mode==='login' ? '로그인' : '가입하기'}</button>
+    </form>
+  </div></div>`;
+  $('#authf').onsubmit = async e => {
+    e.preventDefault();
+    const f = e.target, btn = f.querySelector('button');
+    btn.disabled = true;
+    try {
+      if (mode === 'login'){
+        const { error } = await sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.pw.value });
+        if (error) toast(nice(error.message), true);
+      } else {
+        const { data, error } = await sb.auth.signUp({
+          email: f.email.value.trim(), password: f.pw.value,
+          options: { data: { name: f.name.value.trim() }, emailRedirectTo: new URL('teacher.html', location.href).href }
+        });
+        if (error) toast(nice(error.message), true);
+        else if (!data.session) openModal(`<h3>📮 메일함을 확인해 주세요</h3><p class="muted">${esc(f.email.value)}로 인증 메일을 보냈어요. 메일 속 링크를 누르면 바로 시작할 수 있어요.</p><div class="mfoot"><button class="main" onclick="closeModal()">알겠어요</button></div>`);
+      }
+    } finally { btn.disabled = false; }
+  };
+}
+
+// ---------- 데이터 ----------
+async function loadClasses(){
+  S.classes = await q(sb.from('classes').select('*').order('created_at'));
+  if (!S.classes.length) return renderOnboarding();
+  const saved = store.get('cb_class');
+  const active = S.classes.filter(c => !c.archived);
+  S.classId = S.classes.some(c => c.id === saved) ? saved : (active[active.length-1] || S.classes[0]).id;
+  await loadClassData();
+  render();
+}
+
+async function loadClassData(){
+  const [folders, boards, students] = await Promise.all([
+    q(sb.from('folders').select('*').eq('class_id', S.classId).order('sort_order').order('created_at')),
+    q(sb.from('boards').select('*').eq('class_id', S.classId).order('created_at', { ascending:false })),
+    q(sb.from('students').select('*').eq('class_id', S.classId).order('number'))
+  ]);
+  S.folders = folders; S.boards = boards; S.students = students; S.counts = {};
+  if (boards.length){
+    const posts = await q(sb.from('posts').select('board_id,status').in('board_id', boards.map(b => b.id)));
+    for (const p of posts){
+      const c = S.counts[p.board_id] ||= { all:0, pending:0 };
+      c.all++; if (p.status === 'pending') c.pending++;
+    }
+  }
+}
+async function refresh(){ await loadClassData(); if (S.view.t === 'board') await loadDetail(); render(); }
+
+const folderById = id => S.folders.find(f => f.id === id);
+const boardById = id => S.boards.find(b => b.id === id);
+const childFolders = pid => S.folders.filter(f => (f.parent_id || null) === (pid || null));
+function folderPath(id){
+  const path = []; let f = folderById(id);
+  while (f){ path.unshift(f); f = folderById(f.parent_id); }
+  return path;
+}
+function flatFolders(pid=null, depth=0, out=[]){
+  for (const f of childFolders(pid)){ out.push({ f, depth }); flatFolders(f.id, depth+1, out); }
+  return out;
+}
+const liveBoards = () => S.boards.filter(b => !b.deleted_at && !b.archived_at);
+
+// ---------- 처음 설정 ----------
+function classFormHtml(){
+  const y = new Date().getFullYear();
+  return `
+    <label class="f">학급 이름</label><input name="cname" placeholder="4학년 2반" required>
+    <label class="f">학년도</label><input name="year" type="number" value="${y}">
+    <label class="f">학생 명단 (한 줄에 한 명, "번호 이름")</label>
+    <textarea name="roster" rows="8" placeholder="1 김하늘&#10;2 이바다&#10;3 박구름"></textarea>
+    <div class="muted" style="font-size:12px;margin-top:6px">엑셀에서 번호·이름 두 칸을 복사해 붙여넣어도 돼요. 나중에 추가할 수도 있어요.</div>`;
+}
+async function createClassFromForm(f){
+  const roster = parseRoster(f.roster.value);
+  const [c] = await q(sb.from('classes').insert({ name: f.cname.value.trim(), school_year: parseInt(f.year.value, 10) || new Date().getFullYear() }).select());
+  if (roster.length) await q(sb.from('students').insert(roster.map(r => ({ ...r, class_id: c.id }))));
+  store.set('cb_class', c.id);
+  return c;
+}
+function renderOnboarding(){
+  $('#app').innerHTML = `
+  <div class="auth"><div class="card" style="width:min(480px,100%)">
+    <div class="bear">🌱</div>
+    <h1 style="font-size:26px">우리 반을 만들어 볼까요?</h1>
+    <div class="muted">학급과 학생 명단만 넣으면 준비 끝이에요</div>
+    <form id="onf" style="margin-top:10px">${classFormHtml()}
+      <button class="main" style="width:100%;margin-top:18px;padding:12px">우리 반 만들기</button>
+    </form>
+    <button class="ghost sm" style="margin-top:12px" data-act="logout">로그아웃</button>
+  </div></div>`;
+  $('#onf').onsubmit = async e => {
+    e.preventDefault(); e.target.querySelector('button').disabled = true;
+    try { await createClassFromForm(e.target); await loadClasses(); }
+    catch(err){ e.target.querySelector('button').disabled = false; }
+  };
+}
+
+// ---------- 화면 그리기 ----------
+function render(){
+  const cls = S.classes.find(c => c.id === S.classId);
+  $('#app').innerHTML = `
+  <header class="top">
+    <div class="logo"><span class="bear">🧸</span>우리반 보드</div>
+    <select id="clsSel">${S.classes.map(c => `<option value="${c.id}" ${c.id===S.classId?'selected':''}>${esc(c.school_year)} ${esc(c.name)}${c.archived?' (지난 학급)':''}</option>`).join('')}</select>
+    <button class="sm" data-act="new-class">＋ 학급</button>
+    <span class="sp"></span>
+    <span class="muted" style="font-size:13px">${esc(S.user.email)}</span>
+    <button class="sm ghost" data-act="logout">로그아웃</button>
+  </header>
+  <div class="layout">
+    <aside class="side">${renderSide()}</aside>
+    <main class="content">${renderMain(cls)}</main>
+  </div>`;
+  $('#clsSel').onchange = async e => {
+    S.classId = e.target.value; store.set('cb_class', S.classId);
+    S.view = { t:'all' }; stopLive(); await loadClassData(); render();
+  };
+  if (S.view.t === 'board') startLive();
+}
+
+function navItem(label, t, extra={}){
+  const on = S.view.t === t && (extra.id ? S.view.id === extra.id : true);
+  return `<div class="nav ${on?'on':''}" data-act="go" data-id="${t}" ${extra.drop ? `data-drop="${extra.drop}"` : ''}>${label}${extra.cnt!=null ? `<span class="cnt">${extra.cnt}</span>` : ''}</div>`;
+}
+function renderTree(pid=null, depth=0){
+  return childFolders(pid).map(f => {
+    const kids = childFolders(f.id).length;
+    const closed = S.closedFolders.has(f.id);
+    const cnt = liveBoards().filter(b => b.folder_id === f.id).length;
+    const on = S.view.t === 'folder' && S.view.id === f.id;
+    return `<div class="nav ${on?'on':''}" style="padding-left:${12 + depth*16}px" data-act="open-folder" data-id="${f.id}" draggable="true" data-drag="folder:${f.id}" data-drop="folder:${f.id}">
+        <span class="caret" data-act="toggle-folder" data-id="${f.id}">${kids ? (closed ? '▶' : '▼') : ''}</span>📁 ${esc(f.name)}<span class="cnt">${cnt || ''}</span></div>
+      ${kids && !closed ? renderTree(f.id, depth+1) : ''}`;
+  }).join('');
+}
+function renderSide(){
+  const lb = liveBoards();
+  return `
+    ${navItem('📋 모든 보드', 'all', { cnt: lb.length })}
+    <div class="sideh"><span>폴더</span><button class="sm ghost" data-act="new-folder" title="새 폴더">＋</button></div>
+    ${renderTree() || '<div class="muted" style="font-size:13px;padding:4px 12px">폴더를 만들어 보드를 정리해 보세요</div>'}
+    ${navItem('📄 폴더 밖 보드', 'none', { cnt: lb.filter(b => !b.folder_id).length, drop:'root' })}
+    <div class="hr"></div>
+    ${navItem('🧒 학생 명단', 'students', { cnt: S.students.filter(s => s.active).length })}
+    ${navItem('🗃️ 보관함', 'archive', { cnt: S.boards.filter(b => b.archived_at && !b.deleted_at).length || '' })}
+    ${navItem('🗑️ 휴지통', 'trash', { cnt: S.boards.filter(b => b.deleted_at).length || '' })}
+    <div class="muted" style="font-size:12px;padding:16px 12px;line-height:1.6">💡 보드 카드나 폴더를 끌어서 다른 폴더 위에 놓으면 옮겨져요.</div>`;
+}
+
+function boardCard(b){
+  const c = S.counts[b.id] || { all:0, pending:0 };
+  const path = folderPath(b.folder_id).map(f => f.name).join(' › ');
+  let actions;
+  if (b.deleted_at) actions = `<button class="sm" data-act="restore" data-id="${b.id}">되돌리기</button><button class="sm danger" data-act="destroy" data-id="${b.id}">완전히 삭제</button>`;
+  else if (b.archived_at) actions = `<button class="sm" data-act="unarchive" data-id="${b.id}">보관 해제</button><button class="sm" data-act="board-menu" data-id="${b.id}">⋯</button>`;
+  else actions = `<button class="sm" data-act="copy-link" data-id="${b.id}" title="학생 링크 복사">🔗 링크</button><button class="sm" data-act="qr" data-id="${b.id}">📱 QR</button><span class="sp"></span><button class="sm" data-act="board-menu" data-id="${b.id}">⋯</button>`;
+  return `<div class="bcard" data-act="open-board" data-id="${b.id}" ${b.deleted_at ? '' : `draggable="true" data-drag="board:${b.id}"`}>
+    <div class="bthumb" style="background:${esc(b.background || BGS[0])}">
+      <span class="badge ${b.link_status}">${LINK_LABEL[b.link_status]}</span>
+      <div class="mini"><i></i><i></i><i></i></div>
+    </div>
+    <div class="bbody">
+      <div class="btitle">${esc(b.title)}</div>
+      <div class="bmeta">${path ? '📁 ' + esc(path) + ' · ' : ''}글 ${c.all}${c.pending ? ` · <span class="badge pending">승인 대기 ${c.pending}</span>` : ''}</div>
+      <div class="bact">${actions}</div>
+    </div></div>`;
+}
+function boardGrid(list, emptyMsg){
+  if (!list.length) return `<div class="empty"><div class="big">🧺</div>${emptyMsg}</div>`;
+  return `<div class="grid">${list.map(boardCard).join('')}</div>`;
+}
+
+function renderMain(cls){
+  const v = S.view, lb = liveBoards();
+  if (v.t === 'all') return `
+    <div class="mh"><h2>모든 보드</h2><span class="sp"></span><button class="main" data-act="new-board">＋ 새 보드</button></div>
+    ${boardGrid(lb, '아직 보드가 없어요.<br>오른쪽 위 <b>＋ 새 보드</b>로 첫 보드를 만들어 보세요!')}`;
+
+  if (v.t === 'folder'){
+    const f = folderById(v.id);
+    if (!f){ S.view = { t:'all' }; return renderMain(cls); }
+    const path = folderPath(f.id);
+    const subs = childFolders(f.id);
+    return `
+      <div class="crumb"><span data-act="go" data-id="all">모든 보드</span>${path.slice(0,-1).map(p => ` › <span data-act="open-folder" data-id="${p.id}">${esc(p.name)}</span>`).join('')}</div>
+      <div class="mh"><h2>📁 ${esc(f.name)}</h2>
+        <button class="sm ghost" data-act="rename-folder" data-id="${f.id}">✏️ 이름</button>
+        <button class="sm ghost" data-act="move-folder" data-id="${f.id}">↪ 옮기기</button>
+        <button class="sm ghost danger" data-act="delete-folder" data-id="${f.id}">삭제</button>
+        <span class="sp"></span>
+        <button class="sm" data-act="new-folder" data-id="${f.id}">＋ 하위 폴더</button>
+        <button class="main" data-act="new-board" data-id="${f.id}">＋ 새 보드</button></div>
+      ${subs.length ? `<div class="grid" style="margin-bottom:18px">${subs.map(s => `<div class="fcard" data-act="open-folder" data-id="${s.id}" draggable="true" data-drag="folder:${s.id}" data-drop="folder:${s.id}"><span class="ico">📁</span><div><div class="jua" style="font-size:17px">${esc(s.name)}</div><div class="muted" style="font-size:12px">보드 ${lb.filter(b => b.folder_id === s.id).length}개</div></div></div>`).join('')}</div>` : ''}
+      ${boardGrid(lb.filter(b => b.folder_id === f.id), '이 폴더는 비어 있어요.<br>새 보드를 만들거나 다른 보드를 끌어다 놓아 보세요.')}`;
+  }
+  if (v.t === 'none') return `
+    <div class="mh"><h2>📄 폴더 밖 보드</h2><span class="sp"></span><button class="main" data-act="new-board">＋ 새 보드</button></div>
+    ${boardGrid(lb.filter(b => !b.folder_id), '폴더 밖에 있는 보드가 없어요.')}`;
+  if (v.t === 'archive') return `
+    <div class="mh"><h2>🗃️ 보관함</h2><span class="muted">수업이 끝난 보드를 모아 두는 곳이에요. 학생 링크는 열리지 않아요.</span></div>
+    ${boardGrid(S.boards.filter(b => b.archived_at && !b.deleted_at), '보관한 보드가 없어요.')}`;
+  if (v.t === 'trash') return `
+    <div class="mh"><h2>🗑️ 휴지통</h2><span class="muted">완전히 삭제하면 학생 글도 모두 사라져요.</span></div>
+    ${boardGrid(S.boards.filter(b => b.deleted_at), '휴지통이 비어 있어요.')}`;
+  if (v.t === 'students') return renderStudents(cls);
+  if (v.t === 'portfolio') return renderPortfolio();
+  if (v.t === 'board') return renderDetail();
+  return '';
+}
+
+// ---------- 학생 명단 ----------
+function renderStudents(cls){
+  return `
+    <div class="mh"><h2>🧒 학생 명단</h2><span class="muted">${esc(cls?.name || '')}</span><span class="sp"></span>
+      <button data-act="class-settings">⚙️ 학급 설정</button>
+      <button class="main" data-act="add-students">＋ 학생 추가</button></div>
+    <div class="muted" style="font-size:13px;margin-bottom:12px">이름을 누르면 그 학생의 모든 작업물을 모아 볼 수 있어요. 비밀번호(PIN)를 넣으면 학생이 입장할 때 입력해야 해요.</div>
+    ${S.students.length ? `<table class="t">
+      <tr><th style="width:80px">번호</th><th>이름</th><th style="width:130px">PIN (선택)</th><th style="width:110px">작업물</th><th style="width:110px">상태</th></tr>
+      ${S.students.map(s => `<tr style="${s.active ? '' : 'opacity:.5'}">
+        <td><input value="${s.number}" type="number" data-stu="${s.id}" data-k="number"></td>
+        <td><input value="${esc(s.name)}" data-stu="${s.id}" data-k="name"></td>
+        <td><input value="${esc(s.pin || '')}" inputmode="numeric" maxlength="6" placeholder="없음" data-stu="${s.id}" data-k="pin"></td>
+        <td><button class="sm" data-act="portfolio" data-id="${s.id}">모아 보기</button></td>
+        <td><button class="sm ${s.active ? 'ghost' : ''}" data-act="toggle-student" data-id="${s.id}">${s.active ? '전출 처리' : '다시 활성'}</button></td>
+      </tr>`).join('')}
+    </table>` : `<div class="empty"><div class="big">🧒</div>학생이 아직 없어요. <b>＋ 학생 추가</b>를 눌러 명단을 붙여넣어 주세요.</div>`}`;
+}
+async function saveStudentField(el){
+  const id = el.dataset.stu, k = el.dataset.k;
+  let v = el.value.trim();
+  if (k === 'number'){ v = parseInt(v, 10); if (!v) return toast('번호를 숫자로 넣어 주세요', true); }
+  if (k === 'name' && !v) return toast('이름을 비울 수 없어요', true);
+  if (k === 'pin'){ if (v && !/^\d{4,6}$/.test(v)) return toast('PIN은 숫자 4~6자리로 넣어 주세요', true); v = v || null; }
+  const s = S.students.find(x => x.id === id);
+  if (!s || s[k] === v) return;
+  await q(sb.from('students').update({ [k]: v }).eq('id', id));
+  s[k] = v; toast('저장했어요');
+}
+
+// ---------- 학생별 모아 보기 ----------
+async function openPortfolio(id){
+  S.view = { t:'portfolio', id, items:null }; render();
+  const items = await q(sb.from('student_portfolio').select('*').eq('student_id', id).order('created_at', { ascending:false }));
+  if (S.view.t === 'portfolio' && S.view.id === id){ S.view.items = items; render(); }
+}
+function renderPortfolio(){
+  const s = S.students.find(x => x.id === S.view.id);
+  const items = S.view.items;
+  let body = '<div class="loading">불러오는 중…</div>';
+  if (items){
+    if (!items.length) body = `<div class="empty"><div class="big">📭</div>아직 올린 작업물이 없어요.</div>`;
+    else {
+      const groups = {};
+      for (const it of items) (groups[it.board_id] ||= { title: it.board_title, list: [] }).list.push(it);
+      body = Object.entries(groups).map(([bid, g]) => `
+        <h3 style="margin:22px 0 10px;font-size:19px">${esc(g.title)} <span class="muted" style="font-size:13px">${g.list.length}개</span></h3>
+        <div class="grid">${g.list.map(p => `<div class="post">
+          <div class="who">${p.section_title ? `<span class="chip">${esc(p.section_title)}</span>` : ''}${p.status !== 'approved' ? `<span class="badge pending">${p.status === 'pending' ? '승인 대기' : '숨김'}</span>` : ''}<span class="sp"></span>${new Date(p.created_at).toLocaleDateString('ko-KR')}</div>
+          <div class="txt">${esc(p.content)}</div>
+          ${p.link_url ? `<a class="lnk" href="${esc(p.link_url)}" target="_blank" rel="noopener">${esc(p.link_url)}</a>` : ''}
+          <div class="pf">❤️ ${p.like_count} · 💬 ${p.comment_count}</div></div>`).join('')}</div>`).join('');
+    }
+  }
+  return `
+    <div class="crumb"><span data-act="go" data-id="students">학생 명단</span></div>
+    <div class="mh"><h2>${s ? `${s.number}번 ${esc(s.name)}` : ''}의 작업물</h2><span class="sp"></span>
+      <select id="stuJump" style="width:auto">${S.students.map(x => `<option value="${x.id}" ${x.id === S.view.id ? 'selected' : ''}>${x.number}번 ${esc(x.name)}</option>`).join('')}</select>
+      <button data-act="print">🖨 인쇄</button></div>
+    ${body}`;
+}
+
+// ---------- 보드 상세 (관리) ----------
+async function openBoard(id){
+  stopLive();
+  S.view = { t:'board', id }; S.detail = null;
+  render(); await loadDetail(); render();
+}
+async function loadDetail(){
+  const id = S.view.id;
+  const [sections, posts, missing] = await Promise.all([
+    q(sb.from('sections').select('*').eq('board_id', id).order('sort_order')),
+    q(sb.from('posts').select('*, students(number,name), comments(count), likes(count)').eq('board_id', id).order('sort_order').order('created_at')),
+    q(sb.rpc('missing_students', { p_board_id: id }))
+  ]);
+  if (S.view.t === 'board' && S.view.id === id) S.detail = { sections, posts, missing };
+}
+function renderDetail(){
+  const b = boardById(S.view.id);
+  if (!b){ S.view = { t:'all' }; return renderMain(); }
+  const d = S.detail;
+  const path = folderPath(b.folder_id);
+  const head = `
+    <div class="crumb"><span data-act="go" data-id="all">모든 보드</span>${path.map(p => ` › <span data-act="open-folder" data-id="${p.id}">${esc(p.name)}</span>`).join('')}</div>
+    <div class="mh"><h2>${esc(b.title)}</h2>
+      <div class="seg">${['open','readonly','closed'].map(s => `<button class="${b.link_status===s?'on':''}" data-act="link-status" data-id="${s}">${{open:'✏️ 쓰기 가능', readonly:'👀 보기만', closed:'🔒 닫기'}[s]}</button>`).join('')}</div>
+      <span class="sp"></span>
+      <a href="${esc(studentUrl(b.share_code))}" target="_blank" rel="noopener"><button class="sm">↗ 학생 화면</button></a>
+      <button class="sm" data-act="copy-link" data-id="${b.id}">🔗 링크</button>
+      <button class="sm" data-act="qr" data-id="${b.id}">📱 QR</button>
+      <button class="sm" data-act="teacher-post">✏️ 선생님 글</button>
+      <button class="sm" data-act="board-settings" data-id="${b.id}">⚙️ 설정</button>
+    </div>`;
+  if (!d) return head + '<div class="loading">불러오는 중…</div>';
+
+  const pending = d.posts.filter(p => p.status === 'pending');
+  const info = `
+    <div class="info">
+      <div class="infobox">📝 글 <b>${d.posts.length}</b>개${pending.length ? ` · <span class="badge pending">승인 대기 ${pending.length}</span> <button class="sm" data-act="approve-all">모두 승인</button>` : ''}</div>
+      <div class="infobox">🙋 아직 안 쓴 학생 ${d.missing.length ? d.missing.map(m => `<span class="chip">${m.number} ${esc(m.name)}</span>`).join('') : '<b>없음 🎉</b>'}</div>
+      <div class="infobox muted">${LAYOUT_LABEL[b.layout]} · ${b.require_approval ? '승인 후 공개' : '바로 공개'} · 이름 ${b.show_names ? '보임' : '숨김'} · 학생 이동 ${b.allow_student_move ? '가능' : '불가'}</div>
+    </div>`;
+  const cols = [...d.sections];
+  if (d.posts.some(p => !p.section_id || !cols.some(c => c.id === p.section_id))) cols.push({ id:null, title:'칼럼 없음' });
+  const secOpts = sel => d.sections.map(s => `<option value="${s.id}" ${s.id === sel ? 'selected' : ''}>${esc(s.title)}</option>`).join('');
+  const postHtml = p => {
+    const who = p.student_id ? (p.students ? `${p.students.number}번 ${esc(p.students.name)}` : '알 수 없음') : '👩‍🏫 선생님';
+    return `<div class="post ${p.status === 'hidden' ? 'hidden' : ''}" style="background:${COLORS[p.color] || '#fff'}">
+      <div class="who">${who}${p.status === 'pending' ? '<span class="badge pending">승인 대기</span>' : ''}${p.status === 'hidden' ? '<span class="badge closed">숨김</span>' : ''}</div>
+      <div class="txt">${esc(p.content)}</div>
+      ${p.link_url ? `<a class="lnk" href="${esc(p.link_url)}" target="_blank" rel="noopener">${esc(p.link_url)}</a>` : ''}
+      <div class="pf">❤️ ${p.likes?.[0]?.count || 0} 💬 ${p.comments?.[0]?.count || 0}<span class="sp"></span>
+        ${p.status === 'pending' ? `<button class="sm main" data-act="post-status" data-id="${p.id}" data-s="approved">승인</button>` : ''}
+        ${p.status === 'hidden' ? `<button class="sm" data-act="post-status" data-id="${p.id}" data-s="approved">보이기</button>` : `<button class="sm ghost" data-act="post-status" data-id="${p.id}" data-s="hidden">숨기기</button>`}
+        <button class="sm ghost danger" data-act="post-delete" data-id="${p.id}">삭제</button>
+      </div>
+      ${d.sections.length > 1 ? `<div class="pf">칼럼 <select data-move-post="${p.id}">${secOpts(p.section_id)}</select></div>` : ''}
+    </div>`;
+  };
+  const board = `<div class="cols" style="background:${esc(b.background || BGS[0])}">
+    ${cols.map(c => {
+      const list = d.posts.filter(p => c.id ? p.section_id === c.id : (!p.section_id || !d.sections.some(s => s.id === p.section_id)));
+      return `<div class="col"><div class="colh"><span>${esc(c.title)}</span><span class="muted" style="font-family:'Gowun Dodum';font-size:13px">${list.length}</span></div>${list.map(postHtml).join('') || '<div class="muted" style="font-size:13px;padding:6px">아직 글이 없어요</div>'}</div>`;
+    }).join('') || '<div class="muted">칼럼이 없어요. ⚙️ 설정에서 칼럼을 추가하세요.</div>'}
+  </div>`;
+  return head + info + board;
+}
+
+// 실시간: 학생 화면과 같은 채널을 들음
+function startLive(){
+  const b = boardById(S.view.id);
+  if (!b || S.channel) return;
+  S.channel = sb.channel('board:' + b.share_code)
+    .on('broadcast', { event:'changed' }, () => softReload())
+    .subscribe();
+  S.timer = setInterval(softReload, 15000);
+}
+function stopLive(){
+  if (S.channel){ sb.removeChannel(S.channel); S.channel = null; }
+  if (S.timer){ clearInterval(S.timer); S.timer = null; }
+}
+let reloading = false;
+async function softReload(){
+  if (reloading || S.view.t !== 'board' || $('#modal-root').innerHTML) return;
+  reloading = true;
+  try { await loadDetail(); const y = scrollY; render(); scrollTo(0, y); } finally { reloading = false; }
+}
+function ping(){ S.channel && S.channel.send({ type:'broadcast', event:'changed', payload:{} }); }
+
+// ---------- 보드 만들기 / 설정 ----------
+function folderOptions(sel){
+  return `<option value="">(폴더 밖)</option>` + flatFolders().map(({ f, depth }) =>
+    `<option value="${f.id}" ${f.id === sel ? 'selected' : ''}>${'　'.repeat(depth)}📁 ${esc(f.name)}</option>`).join('');
+}
+function boardFormHtml(b, sections){
+  const bg = b?.background || BGS[0];
+  return `
+    <label class="f">보드 제목</label><input name="title" value="${esc(b?.title || '')}" placeholder="이야기 속 인물에게 한마디" required>
+    <label class="f">설명 (학생에게 보이는 안내)</label><input name="desc" value="${esc(b?.description || '')}" placeholder="인상 깊은 장면과 그 이유를 써 보세요">
+    ${b ? '' : `<label class="f">폴더</label><select name="folder">${folderOptions(S.view.t === 'folder' ? S.view.id : null)}</select>`}
+    <label class="f">칼럼</label>
+    <div id="secList">${(sections || [{ title:'생각 나누기' }]).map(s => secRow(s)).join('')}</div>
+    <button type="button" class="sm" data-act="sec-add">＋ 칼럼 추가</button>
+    <label class="f">모양</label>
+    <select name="layout">${Object.entries(LAYOUT_LABEL).map(([k, v]) => `<option value="${k}" ${b?.layout === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    <label class="f">배경</label>
+    <div class="swatches">${BGS.map(x => `<div class="sw ${x === bg ? 'on' : ''}" style="background:${x}" data-act="pick-bg" data-id="${esc(x)}"></div>`).join('')}</div>
+    <input type="hidden" name="bg" value="${esc(bg)}">
+    <label class="f">규칙</label>
+    <label class="chk"><input type="checkbox" name="appr" ${b?.require_approval ? 'checked' : ''}> 선생님이 승인한 글만 공개</label>
+    <label class="chk"><input type="checkbox" name="names" ${b ? (b.show_names ? 'checked' : '') : 'checked'}> 친구들에게 작성자 이름 보이기</label>
+    <label class="chk"><input type="checkbox" name="move" ${b ? (b.allow_student_move ? 'checked' : '') : 'checked'}> 학생이 자기 글을 다른 칼럼으로 옮기기</label>`;
+}
+function secRow(s){
+  return `<div class="secrow" data-sid="${s.id || ''}"><input value="${esc(s.title)}" placeholder="칼럼 이름"><button type="button" class="sm ghost" data-act="sec-up">↑</button><button type="button" class="sm ghost" data-act="sec-down">↓</button><button type="button" class="sm ghost danger" data-act="sec-del">✕</button></div>`;
+}
+function readSections(m){
+  return [...m.querySelectorAll('#secList .secrow')].map((r, i) => ({ id: r.dataset.sid || null, title: r.querySelector('input').value.trim(), sort_order: i + 1 })).filter(s => s.title);
+}
+function readBoardForm(f){
+  return {
+    title: f.title.value.trim(), description: f.desc.value.trim() || null, layout: f.layout.value,
+    background: f.bg.value, require_approval: f.appr.checked, show_names: f.names.checked, allow_student_move: f.move.checked
+  };
+}
+function newBoard(folderId){
+  if (folderId) S.view = { t:'folder', id: folderId };
+  openModal(`<h3>✨ 새 보드</h3><form>${boardFormHtml(null)}
+    <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">만들기</button></div></form>`, m => {
+    m.querySelector('form').onsubmit = async e => {
+      e.preventDefault();
+      const f = e.target, secs = readSections(m);
+      if (!secs.length) return toast('칼럼을 하나 이상 만들어 주세요', true);
+      f.querySelector('.main').disabled = true;
+      try {
+        const [b] = await q(sb.from('boards').insert({ ...readBoardForm(f), class_id: S.classId, folder_id: f.folder.value || null }).select());
+        await q(sb.from('sections').insert(secs.map(s => ({ board_id: b.id, title: s.title, sort_order: s.sort_order }))));
+        closeModal(); await loadClassData(); toast('보드를 만들었어요'); openBoard(b.id);
+      } catch(err){ f.querySelector('.main').disabled = false; }
+    };
+  });
+}
+async function boardSettings(id){
+  const b = boardById(id);
+  const sections = await q(sb.from('sections').select('*').eq('board_id', id).order('sort_order'));
+  openModal(`<h3>⚙️ 보드 설정</h3><form>${boardFormHtml(b, sections.length ? sections : [{ title:'생각 나누기' }])}
+    <label class="f">학생 링크</label>
+    <div class="row"><span class="muted" style="font-size:13px">코드 <b>${esc(b.share_code)}</b></span><button type="button" class="sm" data-act="regen" data-id="${b.id}">♻️ 링크 새로 만들기</button></div>
+    <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">저장</button></div></form>`, m => {
+    m.querySelector('form').onsubmit = async e => {
+      e.preventDefault();
+      const f = e.target, secs = readSections(m);
+      if (!secs.length) return toast('칼럼을 하나 이상 남겨 주세요', true);
+      f.querySelector('.main').disabled = true;
+      try {
+        await q(sb.from('boards').update(readBoardForm(f)).eq('id', id));
+        const keep = new Set(secs.filter(s => s.id).map(s => s.id));
+        const gone = sections.filter(s => !keep.has(s.id)).map(s => s.id);
+        if (gone.length) await q(sb.from('sections').delete().in('id', gone));
+        for (const s of secs){
+          if (s.id) await q(sb.from('sections').update({ title: s.title, sort_order: s.sort_order }).eq('id', s.id));
+          else await q(sb.from('sections').insert({ board_id: id, title: s.title, sort_order: s.sort_order }));
+        }
+        closeModal(); toast('저장했어요'); ping(); await refresh();
+      } catch(err){ f.querySelector('.main').disabled = false; }
+    };
+  });
+}
+
+// ---------- QR ----------
+function showQr(id){
+  const b = boardById(id), url = studentUrl(b.share_code);
+  openModal(`<div class="qrbox"><h3>${esc(b.title)}</h3>
+    <div class="muted">패드 카메라로 찍으면 바로 들어와요</div>
+    <div id="qr"></div>
+    <div class="qrurl">${esc(url)}</div>
+    ${b.link_status !== 'open' ? `<div style="margin-top:10px"><span class="badge ${b.link_status}">지금은 ${LINK_LABEL[b.link_status]} 상태예요</span></div>` : ''}
+    <div class="mfoot" style="justify-content:center"><button data-act="copy-link" data-id="${b.id}">🔗 링크 복사</button><button data-act="print-qr">🖨 인쇄</button><button class="main" onclick="closeModal()">닫기</button></div></div>`, m => {
+    const size = Math.min(340, innerWidth - 120);
+    new QRCode(m.querySelector('#qr'), { text: url, width: size, height: size, correctLevel: QRCode.CorrectLevel.M });
+  });
+}
+
+// ---------- 메뉴 / 이동 ----------
+function boardMenu(id){
+  const b = boardById(id);
+  const arch = !!b.archived_at;
+  openModal(`<h3>${esc(b.title)}</h3><div class="menu" style="margin-top:14px">
+    ${arch ? '' : `<button data-act="open-board" data-id="${id}">📋 보드 관리 열기</button>
+    <button data-act="move-board" data-id="${id}">📁 다른 폴더로 옮기기</button>
+    <button data-act="dup-board" data-id="${id}">🧬 복제하기 (칼럼·설정만)</button>
+    <button data-act="dup-other" data-id="${id}">🏫 다른 학급으로 복제</button>
+    <button data-act="archive" data-id="${id}">🗃️ 보관함으로 (수업 끝)</button>`}
+    ${arch ? `<button data-act="unarchive" data-id="${id}">↩️ 보관 해제</button>` : ''}
+    <button class="danger" data-act="trash" data-id="${id}">🗑️ 휴지통으로</button>
+  </div><div class="mfoot"><button onclick="closeModal()">닫기</button></div>`);
+}
+function pickFolder(title, current, exclude){
+  return new Promise(res => {
+    const opts = `<option value="">(맨 위 / 폴더 밖)</option>` + flatFolders().filter(({ f }) => !exclude || !isInside(f.id, exclude)).map(({ f, depth }) =>
+      `<option value="${f.id}" ${f.id === current ? 'selected' : ''}>${'　'.repeat(depth)}📁 ${esc(f.name)}</option>`).join('');
+    openModal(`<h3>${esc(title)}</h3><form><select name="f">${opts}</select><div class="mfoot"><button type="button" data-x>취소</button><button class="main">옮기기</button></div></form>`, m => {
+      m.querySelector('[data-x]').onclick = () => { closeModal(); res(undefined); };
+      m.querySelector('form').onsubmit = e => { e.preventDefault(); const v = e.target.f.value || null; closeModal(); res(v); };
+    });
+  });
+}
+function isInside(fid, ancestor){ let f = folderById(fid); while (f){ if (f.id === ancestor) return true; f = folderById(f.parent_id); } return false; }
+
+async function moveBoard(bid, folderId){
+  await q(sb.from('boards').update({ folder_id: folderId }).eq('id', bid));
+  const f = folderById(folderId); toast(f ? `📁 ${f.name}(으)로 옮겼어요` : '폴더 밖으로 옮겼어요');
+  await refresh();
+}
+async function moveFolder(fid, parentId){
+  if (fid === parentId) return;
+  if (parentId && isInside(parentId, fid)) return toast('폴더를 자기 안으로 옮길 수 없어요', true);
+  await q(sb.from('folders').update({ parent_id: parentId }).eq('id', fid));
+  toast('폴더를 옮겼어요'); await refresh();
+}
+
+// ---------- 드래그 앤 드롭 ----------
+document.addEventListener('dragstart', e => {
+  const el = e.target.closest && e.target.closest('[data-drag]');
+  if (!el) return;
+  S.dragging = el.dataset.drag;
+  e.dataTransfer.setData('text/plain', S.dragging); e.dataTransfer.effectAllowed = 'move';
+});
+document.addEventListener('dragover', e => {
+  const t = e.target.closest && e.target.closest('[data-drop]');
+  if (!t || !S.dragging) return;
+  if (t.dataset.drop === S.dragging) return;
+  e.preventDefault();
+  document.querySelectorAll('.dropping').forEach(x => x !== t && x.classList.remove('dropping'));
+  t.classList.add('dropping');
+});
+document.addEventListener('dragleave', e => {
+  const t = e.target.closest && e.target.closest('[data-drop]');
+  if (t && !t.contains(e.relatedTarget)) t.classList.remove('dropping');
+});
+document.addEventListener('drop', async e => {
+  const t = e.target.closest && e.target.closest('[data-drop]');
+  document.querySelectorAll('.dropping').forEach(x => x.classList.remove('dropping'));
+  const src = S.dragging; S.dragging = null;
+  if (!t || !src) return;
+  e.preventDefault();
+  const dst = t.dataset.drop, target = dst === 'root' ? null : dst.split(':')[1];
+  const [kind, id] = src.split(':');
+  try {
+    if (kind === 'board'){ if (boardById(id)?.folder_id !== target) await moveBoard(id, target); }
+    else if (kind === 'folder' && id !== target){ await moveFolder(id, target); }
+  } catch(err){}
+});
+document.addEventListener('dragend', () => { S.dragging = null; document.querySelectorAll('.dropping').forEach(x => x.classList.remove('dropping')); });
+
+// ---------- 버튼 동작 ----------
+const ACT = {
+  'auth-mode': id => renderAuth(id),
+  logout: async () => { await sb.auth.signOut(); },
+  go: id => { stopLive(); S.view = { t: id }; render(); },
+  'open-folder': id => { stopLive(); S.view = { t:'folder', id }; render(); },
+  'toggle-folder': (id, el, e) => { e.stopPropagation(); S.closedFolders.has(id) ? S.closedFolders.delete(id) : S.closedFolders.add(id); render(); },
+  'new-folder': async id => {
+    const name = await promptBox(id ? `‘${folderById(id).name}’ 안에 새 폴더` : '새 폴더 이름', '');
+    if (!name) return;
+    const [f] = await q(sb.from('folders').insert({ name, class_id: S.classId, parent_id: id || null, sort_order: Date.now() / 1e12 }).select());
+    S.closedFolders.delete(id); await loadClassData(); S.view = { t:'folder', id: f.id }; render();
+  },
+  'rename-folder': async id => {
+    const name = await promptBox('폴더 이름 바꾸기', folderById(id).name);
+    if (!name) return;
+    await q(sb.from('folders').update({ name }).eq('id', id)); await refresh();
+  },
+  'move-folder': async id => {
+    const target = await pickFolder('폴더를 어디로 옮길까요?', folderById(id).parent_id, id);
+    if (target !== undefined) await moveFolder(id, target);
+  },
+  'delete-folder': async id => {
+    const f = folderById(id);
+    const ok = await confirmBox(`‘${f.name}’ 폴더를 지울까요? 안의 하위 폴더도 함께 지워지고, 보드는 ‘폴더 밖’으로 나와요.`, '폴더 삭제', true);
+    if (!ok) return;
+    await q(sb.from('folders').delete().eq('id', id));
+    S.view = { t: f.parent_id ? 'folder' : 'all', id: f.parent_id }; await refresh();
+  },
+  'new-board': id => newBoard(id),
+  'open-board': id => { closeModal(); openBoard(id); },
+  'board-menu': id => boardMenu(id),
+  'board-settings': id => boardSettings(id),
+  'copy-link': id => copyText(studentUrl(boardById(id).share_code), '학생 링크를 복사했어요'),
+  qr: id => showQr(id),
+  'print-qr': () => { document.body.classList.add('print-qr'); setTimeout(() => { window.print(); document.body.classList.remove('print-qr'); }, 50); },
+  print: () => window.print(),
+  'move-board': async id => {
+    const target = await pickFolder('어느 폴더로 옮길까요?', boardById(id).folder_id);
+    if (target !== undefined) await moveBoard(id, target);
+  },
+  'dup-board': async id => {
+    closeModal();
+    const nid = await q(sb.rpc('duplicate_board', { p_board_id: id }));
+    toast('복제했어요'); await loadClassData(); openBoard(nid);
+  },
+  'dup-other': async id => {
+    const others = S.classes.filter(c => c.id !== S.classId);
+    if (!others.length) return toast('다른 학급이 없어요. 먼저 ＋ 학급으로 만들어 주세요', true);
+    openModal(`<h3>어느 학급으로 복제할까요?</h3><form><select name="c">${others.map(c => `<option value="${c.id}">${c.school_year} ${esc(c.name)}</option>`).join('')}</select>
+      <div class="muted" style="font-size:12px;margin-top:8px">칼럼과 설정만 복사돼요. 폴더는 그 학급에서 다시 정리해 주세요.</div>
+      <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">복제</button></div></form>`, m => {
+      m.querySelector('form').onsubmit = async e => {
+        e.preventDefault();
+        const cid = e.target.c.value; closeModal();
+        const nid = await q(sb.rpc('duplicate_board', { p_board_id: id, p_class_id: cid }));
+        await q(sb.from('boards').update({ folder_id: null }).eq('id', nid));
+        toast('다른 학급으로 복제했어요');
+      };
+    });
+  },
+  archive: async id => { closeModal(); await q(sb.from('boards').update({ archived_at: new Date().toISOString() }).eq('id', id)); toast('보관함으로 옮겼어요'); if (S.view.t === 'board') S.view = { t:'all' }; stopLive(); await refresh(); },
+  unarchive: async id => { closeModal(); await q(sb.from('boards').update({ archived_at: null }).eq('id', id)); toast('보관을 풀었어요'); await refresh(); },
+  trash: async id => { closeModal(); await q(sb.from('boards').update({ deleted_at: new Date().toISOString() }).eq('id', id)); toast('휴지통으로 옮겼어요'); if (S.view.t === 'board') S.view = { t:'all' }; stopLive(); await refresh(); },
+  restore: async id => { await q(sb.from('boards').update({ deleted_at: null }).eq('id', id)); toast('되돌렸어요'); await refresh(); },
+  destroy: async id => {
+    if (!await confirmBox(`‘${boardById(id).title}’을(를) 완전히 지울까요? 학생 글도 모두 사라지고 되돌릴 수 없어요.`, '완전히 삭제', true)) return;
+    await q(sb.from('boards').delete().eq('id', id)); toast('삭제했어요'); await refresh();
+  },
+  regen: async id => {
+    if (!await confirmBox('링크를 새로 만들까요? 예전 링크와 QR은 더 이상 열리지 않아요.', '새로 만들기', true)) return;
+    const code = await q(sb.rpc('regenerate_share_code', { p_board_id: id }));
+    toast('새 링크를 만들었어요'); ping(); stopLive(); await refresh(); showQr(id);
+  },
+  'link-status': async s => {
+    const id = S.view.id;
+    await q(sb.from('boards').update({ link_status: s }).eq('id', id));
+    boardById(id).link_status = s; toast({ open:'학생들이 글을 쓸 수 있어요', readonly:'이제 보기만 할 수 있어요', closed:'학생 링크를 닫았어요' }[s]);
+    ping(); render();
+  },
+  'post-status': async (id, el) => {
+    await q(sb.from('posts').update({ status: el.dataset.s }).eq('id', id));
+    ping(); await refresh();
+  },
+  'approve-all': async () => {
+    await q(sb.from('posts').update({ status:'approved' }).eq('board_id', S.view.id).eq('status', 'pending'));
+    toast('모두 승인했어요'); ping(); await refresh();
+  },
+  'post-delete': async id => {
+    if (!await confirmBox('이 글을 지울까요?', '삭제', true)) return;
+    await q(sb.from('posts').delete().eq('id', id)); ping(); await refresh();
+  },
+  'teacher-post': () => {
+    const d = S.detail;
+    if (!d?.sections.length) return toast('먼저 ⚙️ 설정에서 칼럼을 만들어 주세요', true);
+    openModal(`<h3>✏️ 선생님 글</h3><form>
+      <label class="f">칼럼</label><select name="sec">${d.sections.map(s => `<option value="${s.id}">${esc(s.title)}</option>`).join('')}</select>
+      <label class="f">내용</label><textarea name="txt" required placeholder="예시 글이나 안내를 써 주세요"></textarea>
+      <label class="f">링크 (선택)</label><input name="lnk" type="url" placeholder="https://">
+      <label class="f">색</label><div class="swatches">${Object.entries(COLORS).map(([k, v], i) => `<label><input type="radio" name="color" value="${k}" ${i === 3 ? 'checked' : ''} style="display:none"><div class="sw" style="background:${v};border-color:${i === 3 ? 'var(--ink)' : '#eee'}" onclick="this.parentNode.parentNode.querySelectorAll('.sw').forEach(x=>x.style.borderColor='#eee');this.style.borderColor='var(--ink)'"></div></label>`).join('')}</div>
+      <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">올리기</button></div></form>`, m => {
+      m.querySelector('form').onsubmit = async e => {
+        e.preventDefault();
+        const f = e.target;
+        await q(sb.from('posts').insert({ board_id: S.view.id, section_id: f.sec.value, content: f.txt.value.trim(), link_url: f.lnk.value.trim() || null, color: f.color.value, status:'approved', sort_order: -Date.now() / 1e10 }));
+        closeModal(); toast('올렸어요'); ping(); await refresh();
+      };
+    });
+  },
+  'pick-bg': (bg, el) => {
+    const m = el.closest('.modal');
+    m.querySelectorAll('.sw').forEach(x => x.classList.remove('on')); el.classList.add('on');
+    m.querySelector('[name=bg]').value = bg;
+  },
+  'sec-add': (id, el) => { const list = el.closest('.modal').querySelector('#secList'); list.insertAdjacentHTML('beforeend', secRow({ title:'' })); list.lastElementChild.querySelector('input').focus(); },
+  'sec-up': (id, el) => { const r = el.closest('.secrow'); r.previousElementSibling && r.parentNode.insertBefore(r, r.previousElementSibling); },
+  'sec-down': (id, el) => { const r = el.closest('.secrow'); r.nextElementSibling && r.parentNode.insertBefore(r.nextElementSibling, r); },
+  'sec-del': (id, el) => {
+    const r = el.closest('.secrow');
+    if (r.dataset.sid) toast('저장하면 이 칼럼의 글은 ‘칼럼 없음’으로 옮겨져요');
+    r.remove();
+  },
+  'add-students': () => {
+    const next = (S.students.reduce((m, s) => Math.max(m, s.number), 0) || 0) + 1;
+    openModal(`<h3>🧒 학생 추가</h3><form>
+      <label class="f">한 줄에 한 명씩 "번호 이름"</label>
+      <textarea name="r" rows="8" placeholder="${next} 김하늘&#10;${next + 1} 이바다"></textarea>
+      <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">추가</button></div></form>`, m => {
+      m.querySelector('form').onsubmit = async e => {
+        e.preventDefault();
+        const list = parseRoster(e.target.r.value);
+        if (!list.length) return toast('"1 김하늘"처럼 번호와 이름을 넣어 주세요', true);
+        const dup = list.find(r => S.students.some(s => s.number === r.number));
+        if (dup) return toast(`${dup.number}번은 이미 있어요`, true);
+        await q(sb.from('students').insert(list.map(r => ({ ...r, class_id: S.classId }))));
+        closeModal(); toast(`${list.length}명을 추가했어요`); await refresh();
+      };
+    });
+  },
+  'toggle-student': async id => {
+    const s = S.students.find(x => x.id === id);
+    await q(sb.from('students').update({ active: !s.active }).eq('id', id)); await refresh();
+  },
+  portfolio: id => openPortfolio(id),
+  'new-class': () => {
+    openModal(`<h3>🏫 새 학급</h3><div class="muted" style="font-size:13px">새 학년도나 다른 반을 만들 때 써요. 기존 학급과 보드는 그대로 남아요.</div><form>${classFormHtml()}
+      <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">만들기</button></div></form>`, m => {
+      m.querySelector('form').onsubmit = async e => {
+        e.preventDefault(); e.target.querySelector('.main').disabled = true;
+        try { await createClassFromForm(e.target); closeModal(); S.view = { t:'all' }; await loadClasses(); toast('새 학급을 만들었어요'); }
+        catch(err){ e.target.querySelector('.main').disabled = false; }
+      };
+    });
+  },
+  'class-settings': () => {
+    const c = S.classes.find(x => x.id === S.classId);
+    openModal(`<h3>⚙️ 학급 설정</h3><form>
+      <label class="f">학급 이름</label><input name="n" value="${esc(c.name)}" required>
+      <label class="f">학년도</label><input name="y" type="number" value="${c.school_year}">
+      <label class="chk"><input type="checkbox" name="a" ${c.archived ? 'checked' : ''}> 지난 학급으로 표시 (학년이 끝났을 때)</label>
+      <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">저장</button></div></form>`, m => {
+      m.querySelector('form').onsubmit = async e => {
+        e.preventDefault(); const f = e.target;
+        await q(sb.from('classes').update({ name: f.n.value.trim(), school_year: parseInt(f.y.value, 10), archived: f.a.checked }).eq('id', c.id));
+        closeModal(); toast('저장했어요'); await loadClasses();
+      };
+    });
+  }
+};
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const fn = ACT[el.dataset.act];
+  if (!fn) return;
+  e.preventDefault(); e.stopPropagation();
+  Promise.resolve(fn(el.dataset.id, el, e)).catch(err => console.error(err));
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.stu) saveStudentField(t).catch(() => {});
+  else if (t.dataset.movePost){
+    q(sb.from('posts').update({ section_id: t.value }).eq('id', t.dataset.movePost)).then(() => { ping(); refresh(); }).catch(() => {});
+  } else if (t.id === 'stuJump') openPortfolio(t.value);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#modal-root').innerHTML) closeModal(); });
+</script>
+</body>
+</html>
