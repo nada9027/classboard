@@ -123,6 +123,8 @@ body.is-dragging .side::before{content:'여기 폴더 위에 놓으세요 👇';
 .colh{font-family:'Jua';font-size:18px;margin:2px 4px 10px;display:flex;justify-content:space-between}
 .post{background:#fff;border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:0 2px 6px rgba(80,60,40,.07)}
 .post.hidden{opacity:.5}
+.post.pinned{outline:3px solid #FFC94D;outline-offset:-1px}
+.badge.pin{background:#FFF0B8;color:#8A6A00}
 .post .who{font-size:12px;color:var(--ink2);margin-bottom:6px;display:flex;gap:6px;align-items:center}
 .post .txt{white-space:pre-wrap;word-break:break-word;line-height:1.55}
 .post .pimg{display:block;width:100%;max-height:260px;object-fit:cover;border-radius:12px;margin:2px 0 6px;background:#f3eee6}
@@ -195,7 +197,7 @@ table.t input{padding:6px 9px;border-radius:9px}
 // 우리반 보드 — 교사 화면
 // =====================================================================
 const CFG = window.CLASSBOARD_CONFIG;
-const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY);
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 
 const COLORS = {white:'#FFFFFF', sky:'#D6ECFF', mint:'#D3F5E6', lemon:'#FFF4BF', peach:'#FFE0D1', lavender:'#E8DFFF', pink:'#FFDDEA'};
 const BGS = [
@@ -310,9 +312,10 @@ function promptBox(title, value=''){
 // ---------- 로그인 ----------
 let booted = false;
 sb.auth.onAuthStateChange((ev, session) => {
+  if (ev === 'PASSWORD_RECOVERY') setTimeout(() => changePassword(true), 300);
   const u = session?.user || null;
   if (!booted || (u?.id) !== (S.user?.id)){
-    booted = true; S.user = u;
+    booted = true; S.user = u; S.isAdmin = undefined;
     setTimeout(boot, 0);
   }
 });
@@ -340,6 +343,7 @@ function renderAuth(mode){
       <label class="f">비밀번호 (6자 이상)</label><input name="pw" type="password" required minlength="6" autocomplete="${mode==='login'?'current-password':'new-password'}">
       <button class="main" style="width:100%;margin-top:18px;padding:12px">${mode==='login' ? '로그인' : '가입하기'}</button>
     </form>
+    ${mode==='login' ? '<button class="ghost sm" style="margin-top:12px" data-act="forgot">비밀번호를 잊었어요</button>' : ''}
   </div></div>`;
   $('#authf').onsubmit = async e => {
     e.preventDefault();
@@ -361,8 +365,40 @@ function renderAuth(mode){
   };
 }
 
+// 내 비밀번호 바꾸기 (메일 링크로 들어온 경우 recovery=true)
+function changePassword(recovery=false){
+  openModal(`<h3>🔐 ${recovery ? '새 비밀번호 정하기' : '내 비밀번호 바꾸기'}</h3>
+    ${recovery ? '<p class="muted">메일 링크로 들어왔어요. 새 비밀번호를 정해 주세요.</p>' : `<p class="muted" style="font-size:13px">${esc(S.user?.email || '')}</p>`}
+    <form><label class="f">새 비밀번호 (6자 이상)</label><input name="a" type="password" minlength="6" required autocomplete="new-password">
+    <label class="f">한 번 더</label><input name="b" type="password" minlength="6" required autocomplete="new-password">
+    <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">바꾸기</button></div></form>`, m => {
+    m.querySelector('form').onsubmit = async e => {
+      e.preventDefault();
+      const a = e.target.a.value, b = e.target.b.value;
+      if (a !== b) return toast('두 비밀번호가 달라요', true);
+      const { error } = await sb.auth.updateUser({ password: a });
+      if (error) return toast(nice(error.message).includes('different') ? '지금과 다른 비밀번호로 정해 주세요' : nice(error.message), true);
+      closeModal(); toast('비밀번호를 바꿨어요');
+    };
+  });
+}
+function forgotPassword(){
+  openModal(`<h3>🔑 비밀번호를 잊었어요</h3>
+    <p class="muted" style="font-size:13px;line-height:1.6">가입한 이메일로 비밀번호를 다시 정하는 링크를 보내요.<br>메일이 안 오면 관리자 선생님께 초기화를 부탁하세요.</p>
+    <form><input name="e" type="email" placeholder="teacher@school.kr" required>
+    <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">링크 보내기</button></div></form>`, m => {
+    m.querySelector('form').onsubmit = async e => {
+      e.preventDefault();
+      const { error } = await sb.auth.resetPasswordForEmail(e.target.e.value.trim(), { redirectTo: new URL('teacher.html', location.href).href });
+      if (error) return toast(/rate|seconds/i.test(error.message) ? '잠시 뒤에 다시 시도해 주세요' : nice(error.message), true);
+      closeModal(); toast('메일을 보냈어요. 메일함을 확인해 주세요 📮');
+    };
+  });
+}
+
 // ---------- 데이터 ----------
 async function loadClasses(){
+  if (S.isAdmin === undefined){ const r = await sb.rpc('is_admin'); S.isAdmin = !r.error && r.data === true; }
   S.classes = await q(sb.from('classes').select('*').order('created_at'));
   if (!S.classes.length) return renderOnboarding();
   const saved = store.get('cb_class');
@@ -448,7 +484,8 @@ function render(){
     <button class="sm" data-act="class-settings">⚙️ 학급 설정</button>
     <button class="sm" data-act="new-class">＋ 학급</button>
     <span class="sp"></span>
-    <span class="muted" style="font-size:13px">${esc(S.user.email)}</span>
+    ${S.isAdmin ? '<a href="admin.html"><button class="sm">🛠 관리자</button></a>' : ''}
+    <button class="sm ghost" data-act="change-pw" title="내 비밀번호 바꾸기">👤 ${esc(S.user.email)}</button>
     <button class="sm ghost" data-act="logout">로그아웃</button>
   </header>
   <div class="layout">
@@ -654,6 +691,7 @@ function renderDetail(){
     </div>`;
   if (!d) return head + '<div class="loading">불러오는 중…</div>';
 
+  d.posts.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
   const pending = d.posts.filter(p => p.status === 'pending');
   const info = `
     <div class="info">
@@ -666,14 +704,15 @@ function renderDetail(){
   const secOpts = sel => d.sections.map(s => `<option value="${s.id}" ${s.id === sel ? 'selected' : ''}>${esc(s.title)}</option>`).join('');
   const postHtml = p => {
     const who = p.student_id ? (p.students ? `${p.students.number}번 ${esc(p.students.name)}` : '알 수 없음') : '👩‍🏫 선생님';
-    return `<div class="post ${p.status === 'hidden' ? 'hidden' : ''}" style="background:${COLORS[p.color] || '#fff'}">
-      <div class="who">${who}${p.status === 'pending' ? '<span class="badge pending">승인 대기</span>' : ''}${p.status === 'hidden' ? '<span class="badge closed">숨김</span>' : ''}</div>
+    return `<div class="post ${p.status === 'hidden' ? 'hidden' : ''} ${p.pinned ? 'pinned' : ''}" style="background:${COLORS[p.color] || '#fff'}">
+      <div class="who">${p.pinned ? '<span class="badge pin">📌 고정</span>' : ''}${who}${p.status === 'pending' ? '<span class="badge pending">승인 대기</span>' : ''}${p.status === 'hidden' ? '<span class="badge closed">숨김</span>' : ''}</div>
       ${p.image_url ? `<a href="${esc(p.image_url)}" target="_blank" rel="noopener"><img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="첨부 사진"></a>` : ''}
       ${p.content ? `<div class="txt">${esc(p.content)}</div>` : ''}
       ${p.link_url ? `<a class="lnk" href="${esc(p.link_url)}" target="_blank" rel="noopener">${esc(p.link_url)}</a>` : ''}
       <div class="pf">❤️ ${p.likes?.[0]?.count || 0} 💬 ${p.comments?.[0]?.count || 0}<span class="sp"></span>
         ${p.status === 'pending' ? `<button class="sm main" data-act="post-status" data-id="${p.id}" data-s="approved">승인</button>` : ''}
         ${p.status === 'hidden' ? `<button class="sm" data-act="post-status" data-id="${p.id}" data-s="approved">보이기</button>` : `<button class="sm ghost" data-act="post-status" data-id="${p.id}" data-s="hidden">숨기기</button>`}
+        <button class="sm ghost" data-act="post-pin" data-id="${p.id}" title="${p.pinned ? '고정 풀기' : '맨 위에 고정'}">${p.pinned ? '📌 풀기' : '📌 고정'}</button>
         <button class="sm ghost danger" data-act="post-delete" data-id="${p.id}">삭제</button>
       </div>
       ${b.layout === 'columns' && d.sections.length > 1 ? `<div class="pf">칼럼 <select data-move-post="${p.id}">${secOpts(p.section_id)}</select></div>` : ''}
@@ -743,7 +782,8 @@ function boardFormHtml(b, sections, layout){
     </div>
     <label class="f">보드 제목</label><input name="title" value="${esc(b?.title || '')}" placeholder="${isCol ? '토끼와 거북이, 어떻게 생각해?' : '오늘 배운 점 한 줄'}" required>
     <label class="f">설명 (학생에게 보이는 안내)</label><input name="desc" value="${esc(b?.description || '')}" placeholder="${isCol ? '알맞은 칸에 내 생각을 붙여 보세요' : '한 장에 하나씩 자유롭게 써 보세요'}">
-    ${b ? '' : `<label class="f">폴더</label><select name="folder">${folderOptions(S.view.t === 'folder' ? S.view.id : null)}</select>`}
+    ${b ? '' : `<label class="f">폴더</label><select name="folder" data-newfolder>${folderOptions(S.view.t === 'folder' ? S.view.id : null)}<option value="__new">＋ 새 폴더 만들기…${S.view.t === 'folder' ? ` (‘${esc(folderById(S.view.id)?.name || '')}’ 안에)` : ''}</option></select>
+      <input name="newfolder" placeholder="새 폴더 이름 (예: 국어 3단원)" style="margin-top:8px" hidden>`}
 
     <div class="only-col" ${isCol ? '' : 'hidden'}>
       <label class="f">칼럼 (칸 이름)</label>
@@ -793,7 +833,14 @@ function newBoardStep2(layout){
       if (!secs) secs = [{ title:'전체', sort_order:1 }];
       f.querySelector('.main').disabled = true;
       try {
-        const [b] = await q(sb.from('boards').insert({ ...readBoardForm(f), class_id: S.classId, folder_id: f.folder.value || null }).select());
+        let folderId = f.folder.value || null;
+        if (folderId === '__new'){
+          const name = f.newfolder.value.trim();
+          if (!name){ f.querySelector('.main').disabled = false; return toast('새 폴더 이름을 넣어 주세요', true); }
+          const [nf] = await q(sb.from('folders').insert({ name, class_id: S.classId, parent_id: S.view.t === 'folder' ? S.view.id : null, sort_order: Date.now() / 1e12 }).select());
+          folderId = nf.id;
+        }
+        const [b] = await q(sb.from('boards').insert({ ...readBoardForm(f), class_id: S.classId, folder_id: folderId }).select());
         await q(sb.from('sections').insert(secs.map(s => ({ board_id: b.id, title: s.title, sort_order: s.sort_order }))));
         closeModal(); await loadClassData(); toast('보드를 만들었어요'); openBoard(b.id);
       } catch(err){ f.querySelector('.main').disabled = false; }
@@ -937,6 +984,8 @@ document.addEventListener('dragend', () => { S.dragging = null; document.body.cl
 const ACT = {
   'auth-mode': id => renderAuth(id),
   logout: async () => { await sb.auth.signOut(); },
+  forgot: () => forgotPassword(),
+  'change-pw': () => changePassword(),
   go: id => { stopLive(); S.view = { t: id }; render(); },
   'open-folder': id => { stopLive(); S.view = { t:'folder', id }; render(); },
   'toggle-folder': (id, el, e) => { e.stopPropagation(); S.closedFolders.has(id) ? S.closedFolders.delete(id) : S.closedFolders.add(id); render(); },
@@ -1025,6 +1074,12 @@ const ACT = {
   'post-status': async (id, el) => {
     await q(sb.from('posts').update({ status: el.dataset.s }).eq('id', id));
     ping(); await refresh();
+  },
+  'post-pin': async id => {
+    const p = S.detail.posts.find(x => x.id === id);
+    const { error } = await sb.from('posts').update({ pinned: !p.pinned }).eq('id', id);
+    if (error) return toast(/pinned/.test(error.message) ? '먼저 Supabase에서 update_02 SQL을 실행해 주세요' : nice(error.message), true);
+    toast(p.pinned ? '고정을 풀었어요' : '📌 맨 위에 고정했어요'); ping(); await refresh();
   },
   'approve-all': async () => {
     await q(sb.from('posts').update({ status:'approved' }).eq('board_id', S.view.id).eq('status', 'pending'));
@@ -1152,6 +1207,10 @@ document.addEventListener('change', e => {
   else if (t.dataset.movePost){
     q(sb.from('posts').update({ section_id: t.value }).eq('id', t.dataset.movePost)).then(() => { ping(); refresh(); }).catch(() => {});
   } else if (t.id === 'stuJump') openPortfolio(t.value);
+  else if (t.dataset.newfolder !== undefined){
+    const inp = t.form.querySelector('[name=newfolder]');
+    inp.hidden = t.value !== '__new'; if (!inp.hidden) inp.focus();
+  }
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#modal-root').innerHTML) closeModal(); });
 </script>

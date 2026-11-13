@@ -70,6 +70,8 @@ textarea{resize:none;min-height:140px;line-height:1.6}
 
 /* 카드 */
 .post{background:#fff;border-radius:20px;padding:14px 14px 10px;margin-bottom:14px;box-shadow:0 4px 0 rgba(120,100,80,.08),0 2px 10px rgba(120,100,80,.06);position:relative}
+.post.pinned{outline:3px solid #FFC94D;outline-offset:-1px}
+.post .pinb{display:inline-block;font-size:13px;background:#FFF0B8;color:#8A6A00;border-radius:999px;padding:3px 10px;margin:0 6px 8px 0}
 .post.pop{animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
 @keyframes pop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
 .post .who{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink2);margin-bottom:8px}
@@ -161,7 +163,8 @@ const store = {
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
   del(k){ try{ localStorage.removeItem(k); }catch(e){} }
 };
-const KEY = 'cb_me_' + CODE;
+const KEY = 'cb_me_' + CODE;      // 이 보드에서 고른 번호
+const KEY_LAST = 'cb_me_last';     // 이 기기에서 마지막으로 고른 번호 (같은 반의 다른 보드에서도 자동 입장)
 let toastTimer;
 function toast(msg, err=false){
   const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
@@ -220,8 +223,11 @@ async function start(){
     S.board = data.board; S.sections = data.sections; S.students = data.students;
     document.title = S.board.title + ' · 우리반 보드';
   } catch(e){ return; }
-  const saved = store.get(KEY);
-  if (saved?.token && S.students.some(s => s.id === saved.me?.id)){ S.me = saved.me; S.token = saved.token; }
+  // 자동 입장: 이 보드 기록 → 없으면 같은 반 다른 보드에서 골랐던 번호
+  for (const saved of [store.get(KEY), store.get(KEY_LAST)]){
+    const stu = saved?.token && S.students.find(s => s.id === saved.me?.id);
+    if (stu){ S.me = { id: stu.id, number: stu.number, name: stu.name }; S.token = saved.token; store.set(KEY, { me: S.me, token: S.token }); break; }
+  }
   if (!S.me) return showPicker();
   await enterBoard();
 }
@@ -247,7 +253,7 @@ async function join(stu, pin=null){
   try {
     const token = await call('student_join', { p_student_id: stu.id, p_pin: pin });
     S.me = { id: stu.id, number: stu.number, name: stu.name }; S.token = token;
-    store.set(KEY, { me: S.me, token });
+    store.set(KEY, { me: S.me, token }); store.set(KEY_LAST, { me: S.me, token });
     closeSheet(); toast(`${ani(stu.number)} 반가워, ${stu.name}!`);
     await enterBoard();
   } catch(e){
@@ -273,7 +279,7 @@ function pinPad(stu, wrong=false){
   });
 }
 function logout(expired=false){
-  store.del(KEY); S.me = null; S.token = null;
+  store.del(KEY); store.del(KEY_LAST); S.me = null; S.token = null;
   if (expired) toast('다시 내 번호를 골라 줘', true);
   showPicker();
 }
@@ -286,7 +292,8 @@ async function enterBoard(){
 }
 async function loadPosts(){
   const data = await call('list_posts', { p_token: S.token });
-  S.posts = data || [];
+  // 선생님이 고정한 글은 맨 위로 (나머지 순서는 그대로)
+  S.posts = (data || []).map((p, i) => [p, i]).sort((a, b) => (b[0].pinned ? 1 : 0) - (a[0].pinned ? 1 : 0) || a[1] - b[1]).map(x => x[0]);
 }
 async function reloadBoard(){
   try {
@@ -345,8 +352,8 @@ function postHtml(p, fresh){
   const name = p.is_teacher ? '선생님' : (p.is_mine ? '나' : (p.author || '친구'));
   const url = safeUrl(p.link_url);
   const canEdit = p.is_mine && S.board.link_status === 'open';
-  return `<div class="post ${fresh.has(p.id) ? 'pop' : ''}" style="background:${COLORS[p.color] || '#fff'}" data-pid="${p.id}">
-    ${p.status === 'pending' ? '<div class="pend">⏳ 선생님 확인 중</div>' : ''}
+  return `<div class="post ${fresh.has(p.id) ? 'pop' : ''} ${p.pinned ? 'pinned' : ''}" style="background:${COLORS[p.color] || '#fff'}" data-pid="${p.id}">
+    ${p.pinned ? '<span class="pinb">📌 선생님이 고정한 글</span>' : ''}${p.status === 'pending' ? '<div class="pend">⏳ 선생님 확인 중</div>' : ''}
     <div class="who"><span class="ani">${who}</span><b>${esc(name)}</b></div>
     ${p.image_url ? `<img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="첨부 사진" data-act="zoom" data-id="${esc(p.image_url)}">` : ''}
     ${p.content ? `<div class="txt">${esc(p.content)}</div>` : ''}

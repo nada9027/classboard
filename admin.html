@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
+<title>우리반 보드 · 관리자</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap">
+<style>
+:root{--cream:#FFF9F0;--paper:#fff;--ink:#3A3550;--ink2:#7A7590;--line:#EEE6DA;--main:#7C8CFF;--main-soft:#E8EBFF;--danger:#F06A6A;--ok:#3DBE8B}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--cream);color:var(--ink);font-family:'Gowun Dodum',system-ui,sans-serif;font-size:15px}
+h1,h2,h3,.jua{font-family:'Jua',sans-serif;font-weight:400;margin:0}
+a{color:inherit;text-decoration:none}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:8px 14px}
+button:hover{background:#FBF6EE}
+button.main{background:var(--main);border-color:var(--main);color:#fff}
+button.danger{color:var(--danger);border-color:#F8C9C9}
+button.danger.fill{background:var(--danger);color:#fff;border-color:var(--danger)}
+button.sm{padding:5px 10px;font-size:13px;border-radius:10px}
+input{border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;width:100%;outline:none;background:#fff}
+input:focus{border-color:var(--main)}
+.top{display:flex;align-items:center;gap:12px;padding:12px 20px;background:#fff;border-bottom:1.5px solid var(--line);position:sticky;top:0;z-index:5}
+.top .logo{font-family:'Jua';font-size:22px}
+.sp{flex:1}
+.wrap{max-width:1200px;margin:0 auto;padding:24px}
+.muted{color:var(--ink2)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:16px 0 22px}
+.stat{background:#fff;border:1.5px solid var(--line);border-radius:18px;padding:14px 18px}
+.stat .n{font-family:'Jua';font-size:30px}
+.stat .l{font-size:13px;color:var(--ink2)}
+table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1.5px solid var(--line);border-radius:18px;overflow:hidden}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-weight:400;color:var(--ink2);font-size:13px;background:#FDF9F3;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:inline-block;font-size:12px;padding:2px 9px;border-radius:999px;background:#F4EDE2;color:var(--ink2);white-space:nowrap}
+.badge.ok{background:#DDF6EC;color:#1E8A5F}
+.badge.warn{background:#FFE0D1;color:#B4552A}
+.badge.admin{background:var(--main-soft);color:#4B57C8}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+.crumb{color:var(--ink2);font-size:13px;margin-bottom:6px}
+.crumb span{cursor:pointer;text-decoration:underline}
+.cls{background:#fff;border:1.5px solid var(--line);border-radius:18px;padding:16px 18px;margin-bottom:14px}
+.mbg{position:fixed;inset:0;background:rgba(58,53,80,.35);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+.modal{background:#fff;border-radius:24px;padding:24px;width:min(480px,100%);box-shadow:0 20px 50px rgba(0,0,0,.18)}
+.modal h3{font-size:22px;margin-bottom:8px}
+.mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.pw{font-family:ui-monospace,Menlo,monospace;font-size:26px;letter-spacing:2px;text-align:center;background:#FBF6EE;border-radius:14px;padding:14px;margin:12px 0}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:14px;z-index:99;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}.toast.err{background:var(--danger)}
+.center{min-height:80vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px}
+.thumb{width:56px;height:56px;object-fit:cover;border-radius:8px}
+@media (max-width:900px){ .hide-s{display:none} }
+</style>
+</head>
+<body>
+<div id="app"><div class="center muted">불러오는 중…</div></div>
+<div id="modal-root"></div>
+<div id="toast" class="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+// =====================================================================
+// 우리반 보드 — 관리자 화면 (관리자 계정만)
+// =====================================================================
+const CFG = window.CLASSBOARD_CONFIG;
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = d => d ? new Date(d).toLocaleString('ko-KR', { year:'2-digit', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+const fmtD = d => d ? new Date(d).toLocaleDateString('ko-KR') : '—';
+const LINK = { open:'열림', readonly:'보기만', closed:'닫힘' };
+const LAY = { columns:'칼럼형', grid:'그리드형', wall:'담벼락형' };
+const ST = { approved:'공개', pending:'승인 대기', hidden:'숨김' };
+
+const A = { me:null, teachers:[], q:'', view:{ t:'list' } };
+
+let tt;
+function toast(m, err=false){ const t = $('#toast'); t.textContent = m; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(tt); tt = setTimeout(() => t.className = 'toast', 2500); }
+function nice(m){ m = String(m || ''); return /^[A-Z_]+: /.test(m) ? m.slice(m.indexOf(': ') + 2) : m; }
+async function rpc(fn, args={}){
+  const { data, error } = await sb.rpc(fn, args);
+  if (error){ toast(nice(error.message), true); throw error; }
+  return data;
+}
+function openModal(html, onMount){
+  $('#modal-root').innerHTML = `<div class="mbg"><div class="modal">${html}</div></div>`;
+  const bg = $('#modal-root').firstElementChild;
+  bg.addEventListener('mousedown', e => { if (e.target === bg) closeModal(); });
+  bg.querySelectorAll('[data-close]').forEach(b => b.onclick = closeModal);
+  onMount && onMount(bg.firstElementChild);
+}
+function closeModal(){ $('#modal-root').innerHTML = ''; }
+async function copy(t){ try { await navigator.clipboard.writeText(t); toast('복사했어요'); } catch(e){ toast('직접 선택해서 복사해 주세요', true); } }
+function tempPassword(){
+  const words = ['sky','sun','tree','star','moon','cloud','bear','frog','leaf','rain'];
+  const n = crypto.getRandomValues(new Uint32Array(2));
+  return words[n[0] % words.length] + String(n[1] % 9000 + 1000);
+}
+function downloadCsv(name, rows){
+  const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' }));
+  a.download = name; a.click();
+}
+
+// ---------- 시작 ----------
+async function start(){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session){
+    $('#app').innerHTML = `<div class="center"><div style="font-size:56px">🔐</div><h2>먼저 교사 화면에서 로그인해 주세요</h2><a href="teacher.html"><button class="main">교사 화면으로</button></a></div>`;
+    return;
+  }
+  A.me = session.user;
+  const ok = await rpc('is_admin').catch(() => false);
+  if (!ok){
+    $('#app').innerHTML = `<div class="center"><div style="font-size:56px">🙅</div><h2>관리자만 볼 수 있는 화면이에요</h2><a href="teacher.html"><button>교사 화면으로</button></a></div>`;
+    return;
+  }
+  await loadTeachers(); render();
+}
+async function loadTeachers(){ A.teachers = await rpc('admin_list_teachers'); }
+
+function frame(inner){
+  return `<header class="top"><span class="logo">🛠 관리자</span><span class="muted" style="font-size:13px">우리반 보드</span><span class="sp"></span>
+    <span class="muted" style="font-size:13px">${esc(A.me.email)}</span><a href="teacher.html"><button class="sm">← 교사 화면</button></a></header>
+    <div class="wrap">${inner}</div>`;
+}
+
+async function render(){
+  const v = A.view;
+  if (v.t === 'list') return renderList();
+  if (v.t === 'teacher') return renderTeacher();
+  if (v.t === 'board') return renderBoard();
+}
+
+// ---------- 선생님 목록 ----------
+function renderList(){
+  const T = A.teachers;
+  const sum = k => T.reduce((s, t) => s + Number(t[k] || 0), 0);
+  const q = A.q.trim().toLowerCase();
+  const list = q ? T.filter(t => (t.email + ' ' + t.name).toLowerCase().includes(q)) : T;
+  $('#app').innerHTML = frame(`
+    <h2 style="font-size:26px">선생님 계정</h2>
+    <div class="stats">
+      <div class="stat"><div class="n">${T.length}</div><div class="l">가입한 선생님</div></div>
+      <div class="stat"><div class="n">${sum('classes')}</div><div class="l">학급</div></div>
+      <div class="stat"><div class="n">${sum('students')}</div><div class="l">학생</div></div>
+      <div class="stat"><div class="n">${sum('boards')}</div><div class="l">보드</div></div>
+      <div class="stat"><div class="n">${sum('posts')}</div><div class="l">학생 글</div></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px"><input id="q" placeholder="이름이나 이메일로 찾기" value="${esc(A.q)}" style="max-width:320px"><span class="sp"></span><button data-act="refresh">🔄 새로고침</button></div>
+    <table>
+      <tr><th>선생님</th><th class="hide-s">가입</th><th>마지막 로그인</th><th>상태</th><th>학급</th><th>학생</th><th>보드</th><th>글</th><th class="hide-s">최근 학생 글</th><th>관리</th></tr>
+      ${list.map(t => `<tr>
+        <td><b>${esc(t.name || '(이름 없음)')}</b><div class="muted" style="font-size:12px">${esc(t.email)}</div></td>
+        <td class="hide-s">${fmtD(t.created_at)}</td>
+        <td>${fmt(t.last_sign_in_at)}</td>
+        <td>${t.is_admin ? '<span class="badge admin">관리자</span> ' : ''}${t.confirmed ? '<span class="badge ok">인증됨</span>' : '<span class="badge warn">메일 인증 전</span>'}</td>
+        <td class="num">${t.classes}</td><td class="num">${t.students}</td><td class="num">${t.boards}</td><td class="num">${t.posts}</td>
+        <td class="hide-s">${fmt(t.last_post_at)}</td>
+        <td><div class="acts">
+          <button class="sm" data-act="view" data-id="${t.id}">👀 보기</button>
+          <button class="sm" data-act="reset" data-id="${t.id}">🔑 비밀번호 초기화</button>
+          ${t.confirmed ? '' : `<button class="sm" data-act="confirm" data-id="${t.id}">✉️ 인증 처리</button>`}
+          ${t.id === A.me.id ? '' : `<button class="sm danger" data-act="delete" data-id="${t.id}">🗑</button>`}
+        </div></td></tr>`).join('') || '<tr><td colspan="10" class="muted">찾는 선생님이 없어요</td></tr>'}
+    </table>
+    <p class="muted" style="font-size:13px;line-height:1.7">💡 비밀번호를 잊은 선생님은 <b>🔑 비밀번호 초기화</b>로 임시 비밀번호를 만들어 알려 주세요. 로그인한 뒤 교사 화면 오른쪽 위 이메일을 눌러 새 비밀번호로 바꿀 수 있어요.<br>인증 메일이 안 왔다는 선생님은 <b>✉️ 인증 처리</b>를 누르면 바로 로그인할 수 있어요.</p>`);
+  const qi = $('#q');
+  qi.oninput = () => { A.q = qi.value; const pos = qi.selectionStart; renderList(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); };
+}
+
+// ---------- 선생님 상세 ----------
+async function renderTeacher(){
+  const t = A.teachers.find(x => x.id === A.view.id);
+  $('#app').innerHTML = frame('<div class="center muted">불러오는 중…</div>');
+  const classes = A.view.data || (A.view.data = await rpc('admin_teacher_overview', { p_teacher: t.id }));
+  $('#app').innerHTML = frame(`
+    <div class="crumb"><span data-act="home">선생님 계정</span></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px"><h2 style="font-size:26px">${esc(t.name || t.email)}</h2><span class="muted">${esc(t.email)}</span><span class="sp"></span>
+      <button class="sm" data-act="reset" data-id="${t.id}">🔑 비밀번호 초기화</button></div>
+    ${classes.length ? classes.map(c => `<div class="cls">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><h3 style="font-size:20px">${esc(c.school_year)} ${esc(c.name)}</h3>${c.archived ? '<span class="badge">지난 학급</span>' : ''}<span class="muted" style="font-size:13px">학생 ${c.students}명 · 보드 ${c.boards.length}개</span></div>
+      ${c.boards.length ? `<table><tr><th>보드</th><th>모양</th><th>링크</th><th>상태</th><th>글</th><th>만든 날</th><th></th></tr>
+        ${c.boards.map(b => `<tr><td>${esc(b.title)}</td><td>${LAY[b.layout] || ''}</td><td>${LINK[b.link_status] || ''}</td>
+          <td>${b.deleted ? '<span class="badge warn">휴지통</span>' : b.archived ? '<span class="badge">보관</span>' : '<span class="badge ok">사용 중</span>'}</td>
+          <td class="num">${b.posts}</td><td>${fmtD(b.created_at)}</td>
+          <td><button class="sm" data-act="board" data-id="${b.id}" data-title="${esc(b.title)}">글 보기</button></td></tr>`).join('')}</table>` : '<div class="muted">보드가 없어요</div>'}
+    </div>`).join('') : '<div class="cls muted">아직 학급이 없어요</div>'}`);
+}
+
+// ---------- 보드 글 ----------
+async function renderBoard(){
+  const t = A.teachers.find(x => x.id === A.view.tid);
+  $('#app').innerHTML = frame('<div class="center muted">불러오는 중…</div>');
+  const posts = A.view.posts || (A.view.posts = await rpc('admin_board_posts', { p_board: A.view.id }));
+  $('#app').innerHTML = frame(`
+    <div class="crumb"><span data-act="home">선생님 계정</span> › <span data-act="view" data-id="${t.id}">${esc(t.name || t.email)}</span></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px"><h2 style="font-size:24px">${esc(A.view.title)}</h2><span class="muted">글 ${posts.length}개 · 읽기 전용</span><span class="sp"></span>
+      <button class="sm" data-act="csv">⬇️ CSV 내려받기</button></div>
+    <table><tr><th>번호</th><th>이름</th><th>칼럼</th><th>내용</th><th>사진</th><th>상태</th><th>❤️</th><th>💬</th><th>작성</th></tr>
+      ${posts.map(p => `<tr><td>${p.number ?? '—'}</td><td>${esc(p.name || '선생님')}</td><td>${esc(p.section || '')}</td>
+        <td style="white-space:pre-wrap;max-width:380px">${esc(p.content)}${p.link_url ? `<div><a href="${esc(p.link_url)}" target="_blank" rel="noopener" style="color:#4B57C8;font-size:12px">${esc(p.link_url)}</a></div>` : ''}</td>
+        <td>${p.image_url ? `<a href="${esc(p.image_url)}" target="_blank" rel="noopener"><img class="thumb" src="${esc(p.image_url)}" loading="lazy" alt="사진"></a>` : ''}</td>
+        <td>${ST[p.status] || p.status}</td><td class="num">${p.likes}</td><td class="num">${p.comments}</td><td>${fmt(p.created_at)}</td></tr>`).join('') || '<tr><td colspan="9" class="muted">글이 없어요</td></tr>'}
+    </table>`);
+}
+
+// ---------- 동작 ----------
+const ACT = {
+  home: () => { A.view = { t:'list' }; render(); },
+  refresh: async () => { await loadTeachers(); render(); toast('새로고침했어요'); },
+  view: id => { A.view = { t:'teacher', id }; render(); },
+  board: (id, el) => { A.view = { t:'board', id, tid: A.view.id || A.view.tid, title: el.dataset.title }; render(); },
+  csv: () => {
+    const rows = [['번호','이름','칼럼','내용','링크','사진','상태','좋아요','댓글','작성시간']].concat(
+      A.view.posts.map(p => [p.number ?? '', p.name || '선생님', p.section || '', p.content, p.link_url || '', p.image_url || '', ST[p.status] || p.status, p.likes, p.comments, fmt(p.created_at)]));
+    downloadCsv(`${A.view.title}.csv`, rows);
+  },
+  reset: id => {
+    const t = A.teachers.find(x => x.id === id);
+    const pw = tempPassword();
+    openModal(`<h3>🔑 비밀번호 초기화</h3><p class="muted">${esc(t.name || '')} (${esc(t.email)})의 비밀번호를 아래 임시 비밀번호로 바꿔요. 직접 고쳐도 돼요.</p>
+      <form><input name="pw" value="${pw}" minlength="6" required style="font-family:ui-monospace,Menlo,monospace;font-size:20px;text-align:center">
+      <div class="mfoot"><button type="button" data-close>취소</button><button class="main">초기화</button></div></form>`, m => {
+      m.querySelector('form').onsubmit = async e => {
+        e.preventDefault();
+        const v = e.target.pw.value.trim();
+        if (v.length < 6) return toast('6자 이상으로 해 주세요', true);
+        await rpc('admin_reset_password', { p_user: id, p_password: v });
+        openModal(`<h3>✅ 초기화했어요</h3><p>${esc(t.name || t.email)} 선생님께 아래 임시 비밀번호를 알려 주세요.</p>
+          <div class="pw">${esc(v)}</div>
+          <p class="muted" style="font-size:13px">로그인한 뒤 교사 화면 오른쪽 위 이메일을 눌러 새 비밀번호로 바꾸도록 안내해 주세요.</p>
+          <div class="mfoot"><button id="cp">📋 복사</button><button class="main" data-close>닫기</button></div>`, m2 => m2.querySelector('#cp').onclick = () => copy(v));
+        await loadTeachers(); if (A.view.t === 'list') renderList();
+      };
+    });
+  },
+  confirm: async id => { await rpc('admin_confirm_email', { p_user: id }); toast('인증 처리했어요. 이제 로그인할 수 있어요'); await loadTeachers(); render(); },
+  delete: id => {
+    const t = A.teachers.find(x => x.id === id);
+    openModal(`<h3>🗑 계정 삭제</h3><p style="line-height:1.6">${esc(t.email)} 계정과 학급 ${t.classes}개, 보드 ${t.boards}개, 학생 글 ${t.posts}개가 <b style="color:var(--danger)">모두 지워지고 되돌릴 수 없어요.</b></p>
+      <form><label class="muted" style="font-size:13px">확인을 위해 이메일을 그대로 입력해 주세요</label><input name="e" autocomplete="off" style="margin-top:6px">
+      <div class="mfoot"><button type="button" data-close>취소</button><button class="danger fill">영구 삭제</button></div></form>`, m => {
+      m.querySelector('form').onsubmit = async e => {
+        e.preventDefault();
+        if (e.target.e.value.trim() !== t.email) return toast('이메일이 달라요', true);
+        await rpc('admin_delete_teacher', { p_user: id });
+        closeModal(); toast('계정을 삭제했어요'); A.view = { t:'list' }; await loadTeachers(); render();
+      };
+    });
+  }
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el || !ACT[el.dataset.act]) return;
+  e.preventDefault();
+  Promise.resolve(ACT[el.dataset.act](el.dataset.id, el)).catch(err => console.error(err));
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+start();
+</script>
+</body>
+</html>
