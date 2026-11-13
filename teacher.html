@@ -423,6 +423,7 @@ function render(){
   <header class="top">
     <div class="logo"><span class="bear">🧸</span>우리반 보드</div>
     <select id="clsSel">${S.classes.map(c => `<option value="${c.id}" ${c.id===S.classId?'selected':''}>${esc(c.school_year)} ${esc(c.name)}${c.archived?' (지난 학급)':''}</option>`).join('')}</select>
+    <button class="sm" data-act="class-settings">⚙️ 학급 설정</button>
     <button class="sm" data-act="new-class">＋ 학급</button>
     <span class="sp"></span>
     <span class="muted" style="font-size:13px">${esc(S.user.email)}</span>
@@ -1071,13 +1072,33 @@ const ACT = {
       };
     });
   },
+  'delete-class': () => {
+    const c = S.classes.find(x => x.id === S.classId);
+    const nb = S.boards.length, ns = S.students.length;
+    openModal(`<h3>🗑️ ‘${esc(c.name)}’ 학급을 삭제할까요?</h3>
+      <p style="line-height:1.6">학생 <b>${ns}명</b>, 보드 <b>${nb}개</b>, 폴더와 학생 글·댓글이 <b style="color:var(--danger)">모두 함께 지워지고 되돌릴 수 없어요.</b></p>
+      <p class="muted" style="font-size:13px">학년이 끝난 거라면 삭제 대신 ‘지난 학급으로 표시’를 추천해요.</p>
+      <form><label class="f">확인을 위해 학급 이름 <b>${esc(c.name)}</b>을(를) 그대로 입력해 주세요</label><input name="n" autocomplete="off">
+      <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="danger fill">영구 삭제</button></div></form>`, m => {
+      m.querySelector('form').onsubmit = async e => {
+        e.preventDefault();
+        if (e.target.n.value.trim() !== c.name) return toast('학급 이름이 달라요', true);
+        e.target.querySelector('.fill').disabled = true;
+        try {
+          await q(sb.from('classes').delete().eq('id', c.id));
+          closeModal(); stopLive(); S.view = { t:'all' }; S.classId = null;
+          toast('학급을 삭제했어요'); await loadClasses();
+        } catch(err){ e.target.querySelector('.fill').disabled = false; }
+      };
+    });
+  },
   'class-settings': () => {
     const c = S.classes.find(x => x.id === S.classId);
     openModal(`<h3>⚙️ 학급 설정</h3><form>
       <label class="f">학급 이름</label><input name="n" value="${esc(c.name)}" required>
       <label class="f">학년도</label><input name="y" type="number" value="${c.school_year}">
       <label class="chk"><input type="checkbox" name="a" ${c.archived ? 'checked' : ''}> 지난 학급으로 표시 (학년이 끝났을 때)</label>
-      <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">저장</button></div></form>`, m => {
+      <div class="mfoot"><button type="button" class="danger" data-act="delete-class" style="margin-right:auto">🗑️ 학급 삭제</button><button type="button" onclick="closeModal()">취소</button><button class="main">저장</button></div></form>`, m => {
       m.querySelector('form').onsubmit = async e => {
         e.preventDefault(); const f = e.target;
         await q(sb.from('classes').update({ name: f.n.value.trim(), school_year: parseInt(f.y.value, 10), archived: f.a.checked }).eq('id', c.id));
