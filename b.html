@@ -77,6 +77,12 @@ textarea{resize:none;min-height:140px;line-height:1.6}
 .post .who b{font-weight:400;color:var(--ink)}
 .post .txt{white-space:pre-wrap;word-break:break-word;line-height:1.6;font-size:17px}
 .post .lnk{display:flex;align-items:center;gap:6px;margin-top:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.7);font-size:14px;color:#4B57C8;text-decoration:none;word-break:break-all}
+.post .pimg{display:block;width:100%;max-height:340px;object-fit:cover;border-radius:14px;margin:4px 0 6px;background:#f3eee6;cursor:zoom-in}
+.photo-pick{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+.photo-pick .pv{position:relative}
+.photo-pick .pv img{display:block;height:110px;max-width:220px;object-fit:cover;border-radius:14px}
+.photo-pick .pv button{position:absolute;top:-10px;right:-10px;min-height:36px;width:36px;padding:0;border-radius:50%;background:var(--ink);color:#fff;font-size:16px}
+.zoomimg{display:block;max-width:100%;max-height:75vh;margin:0 auto;border-radius:16px}
 .post .pend{display:inline-block;font-size:13px;background:var(--peach);color:#B4552A;border-radius:999px;padding:3px 10px;margin-bottom:8px}
 .pfoot{display:flex;align-items:center;gap:2px;margin-top:8px}
 .pfoot .sp{flex:1}
@@ -176,6 +182,34 @@ async function call(fn, args){
   return data;
 }
 function safeUrl(u){ try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : null; } catch(e){ return null; } }
+async function sha256hex(t){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+// 패드 사진은 커서 1600px · JPEG로 줄여서 올림 (보통 300KB 안팎)
+async function shrinkImage(file){
+  if (file.type === 'image/gif' && file.size < 4e6) return { blob: file, ext: 'gif', type: 'image/gif' };
+  let src;
+  try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+  catch(e){
+    src = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = URL.createObjectURL(file); });
+  }
+  const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight;
+  const k = Math.min(1, 1600 / Math.max(w, h));
+  const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(src, 0, 0, c.width, c.height);
+  const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.82));
+  return { blob, ext: 'jpg', type: 'image/jpeg' };
+}
+async function uploadImage(file){
+  const img = await shrinkImage(file);
+  if (img.blob.size > 5 * 1024 * 1024) throw new Error('BIG: 사진이 너무 커요');
+  const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)).replace(/[^A-Za-z0-9-]/g, '');
+  const path = `${CODE}/${await sha256hex(S.token)}/${id}.${img.ext}`;
+  const { error } = await sb.storage.from('post-images').upload(path, img.blob, { contentType: img.type, upsert: false });
+  if (error) throw error;
+  return sb.storage.from('post-images').getPublicUrl(path).data.publicUrl;
+}
 function authorNum(a){ const m = String(a || '').match(/^(\d+)번/); return m ? parseInt(m[1], 10) : null; }
 
 // ---------- 시작 ----------
@@ -314,7 +348,8 @@ function postHtml(p, fresh){
   return `<div class="post ${fresh.has(p.id) ? 'pop' : ''}" style="background:${COLORS[p.color] || '#fff'}" data-pid="${p.id}">
     ${p.status === 'pending' ? '<div class="pend">⏳ 선생님 확인 중</div>' : ''}
     <div class="who"><span class="ani">${who}</span><b>${esc(name)}</b></div>
-    <div class="txt">${esc(p.content)}</div>
+    ${p.image_url ? `<img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="첨부 사진" data-act="zoom" data-id="${esc(p.image_url)}">` : ''}
+    ${p.content ? `<div class="txt">${esc(p.content)}</div>` : ''}
     ${url ? `<a class="lnk" href="${esc(url)}" target="_blank" rel="noopener">🔗 ${esc(new URL(url).hostname)}</a>` : ''}
     <div class="pfoot">
       <button class="icon heart ${p.liked ? 'on' : ''}" data-act="like" data-id="${p.id}" ${p.status !== 'approved' ? 'disabled' : ''}><span class="h">${p.liked ? '❤️' : '🤍'}</span>${p.like_count || ''}</button>
@@ -341,32 +376,56 @@ function writeSheet(sectionId, post){
   const isCol = S.board.layout === 'columns';
   let sec = post ? post.section_id : (sectionId || S.sections[0]?.id || null);
   let color = post ? post.color : S.lastColor;
+  let photoFile = null;                       // 새로 고른 사진
+  let photoUrl = post?.image_url || null;     // 이미 붙어 있던 사진
   openSheet(`<h3>${post ? '✏️ 내 글 고치기' : '✏️ 생각 붙이기'}</h3>
     ${isCol && !post && S.sections.length > 1 ? `<div class="lbl">어느 칸에 붙일까?</div><div class="chips">${S.sections.map(s => `<button class="chip ${s.id === sec ? 'on' : ''}" data-sec="${s.id}">${esc(s.title)}</button>`).join('')}</div>` : ''}
     <textarea id="wtxt" maxlength="3000" placeholder="여기에 내 생각을 써 봐요">${esc(post?.content || '')}</textarea>
+    <div class="photo-pick">
+      <label class="soft" style="display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:10px 18px;border-radius:16px;background:#F4EDE2;cursor:pointer">📷 사진 붙이기<input id="wimg" type="file" accept="image/*" hidden></label>
+      <div class="pv" id="wpv" hidden><img id="wpvimg" alt="미리보기"><button type="button" id="wpvx" aria-label="사진 빼기">✕</button></div>
+    </div>
     <div class="lbl">카드 색깔</div>
     <div class="colors">${Object.entries(COLORS).map(([k, v]) => `<button class="cdot ${k === color ? 'on' : ''}" style="background:${v}" data-color="${k}" aria-label="${k}"></button>`).join('')}</div>
     <details ${post?.link_url ? 'open' : ''} style="margin-top:12px"><summary class="muted" style="cursor:pointer;padding:8px 0">🔗 링크 붙이기 (선택)</summary>
       <input id="wlnk" type="url" inputmode="url" placeholder="https://" value="${esc(post?.link_url || '')}"></details>
     <div class="sfoot"><button class="soft" data-close>취소</button><button class="main" id="wgo">${post ? '고치기' : '붙이기!'}</button></div>`, sh => {
     const ta = sh.querySelector('#wtxt');
-    setTimeout(() => { ta.focus(); ta.scrollIntoView({ block:'center' }); }, 60);
+    if (!post) setTimeout(() => ta.focus(), 60);
+    const pv = sh.querySelector('#wpv'), pvimg = sh.querySelector('#wpvimg');
+    const showPv = src => { if (src){ pvimg.src = src; pv.hidden = false; } else { pv.hidden = true; pvimg.removeAttribute('src'); } };
+    showPv(photoUrl);
+    sh.querySelector('#wimg').onchange = e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      if (!/^image\//.test(f.type)) return toast('사진 파일만 붙일 수 있어요', true);
+      photoFile = f; showPv(URL.createObjectURL(f));
+    };
+    sh.querySelector('#wpvx').onclick = () => { photoFile = null; photoUrl = null; sh.querySelector('#wimg').value = ''; showPv(null); };
     sh.querySelectorAll('[data-sec]').forEach(b => b.onclick = () => { sec = b.dataset.sec; sh.querySelectorAll('[data-sec]').forEach(x => x.classList.toggle('on', x === b)); });
     sh.querySelectorAll('[data-color]').forEach(b => b.onclick = () => { color = b.dataset.color; sh.querySelectorAll('[data-color]').forEach(x => x.classList.toggle('on', x === b)); });
     sh.querySelector('#wgo').onclick = async e => {
+      const btn = e.target;
       const txt = ta.value.trim();
       let lnk = sh.querySelector('#wlnk').value.trim();
       if (lnk && !/^https?:\/\//i.test(lnk)) lnk = 'https://' + lnk;
-      if (!txt) return toast('내용을 먼저 써 줘!', true);
+      if (!txt && !photoFile && !photoUrl) return toast('글을 쓰거나 사진을 붙여 줘!', true);
       if (lnk && !safeUrl(lnk)) return toast('링크 주소가 이상해요', true);
-      e.target.disabled = true;
+      btn.disabled = true;
       try {
-        if (post) await call('update_post', { p_token: S.token, p_post_id: post.id, p_content: txt, p_link_url: lnk || null, p_color: color });
-        else await call('create_post', { p_token: S.token, p_section_id: sec, p_content: txt, p_link_url: lnk || null, p_color: color });
+        let img = photoUrl;
+        if (photoFile){
+          btn.textContent = '사진 올리는 중… 📷';
+          try { img = await uploadImage(photoFile); }
+          catch(err){ toast(errCode(err) === 'BIG' ? '사진이 너무 커요. 다른 사진을 골라 줘' : '사진을 올리지 못했어요. 다시 해 볼까?', true); throw err; }
+        }
+        const args = { p_token: S.token, p_content: txt, p_link_url: lnk || null, p_color: color, p_image_url: img };
+        if (post) await call('update_post', { ...args, p_post_id: post.id });
+        else await call('create_post', { ...args, p_section_id: sec });
         S.lastColor = color; closeSheet();
         toast(post ? '고쳤어요!' : (S.board.require_approval ? '붙였어요! 선생님이 확인하면 친구들에게 보여요 ⏳' : '붙였어요! 🎉'));
         ping(); await loadPosts(); render();
-      } catch(err){ e.target.disabled = false; }
+      } catch(err){ btn.disabled = false; btn.textContent = post ? '고치기' : '붙이기!'; }
     };
   });
 }
@@ -418,7 +477,7 @@ function commentsSheet(id){
   if (!p) return;
   const open = S.board.link_status === 'open';
   openSheet(`<h3>💬 댓글</h3>
-    <div class="post" style="box-shadow:none;background:${COLORS[p.color] || '#fff'}"><div class="txt">${esc(p.content)}</div></div>
+    <div class="post" style="box-shadow:none;background:${COLORS[p.color] || '#fff'}">${p.image_url ? `<img class="pimg" src="${esc(p.image_url)}" alt="첨부 사진">` : ''}${p.content ? `<div class="txt">${esc(p.content)}</div>` : ''}</div>
     <div id="clist">${p.comments.length ? p.comments.map(c => {
       const n = c.is_mine ? S.me.number : authorNum(c.author);
       return `<div class="cmt"><span class="ani">${c.author === '선생님' ? '👩‍🏫' : ani(n)}</span><div style="flex:1"><div class="cw">${esc(c.is_mine ? '나' : (c.author || '친구'))}</div><div class="ct">${esc(c.content)}</div></div>${c.is_mine && open ? `<button class="icon" data-cdel="${c.id}" aria-label="댓글 지우기">🗑️</button>` : ''}</div>`;
@@ -473,6 +532,7 @@ document.addEventListener('click', e => {
     case 'mine': mineMenu(id); break;
     case 'like': like(id, el); break;
     case 'comments': commentsSheet(id); break;
+    case 'zoom': openSheet(`<img class="zoomimg" src="${esc(id)}" alt="사진 크게 보기"><div class="sfoot"><button class="soft" data-close>닫기</button></div>`); break;
   }
 });
 

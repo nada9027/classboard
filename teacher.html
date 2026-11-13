@@ -125,6 +125,7 @@ body.is-dragging .side::before{content:'여기 폴더 위에 놓으세요 👇';
 .post.hidden{opacity:.5}
 .post .who{font-size:12px;color:var(--ink2);margin-bottom:6px;display:flex;gap:6px;align-items:center}
 .post .txt{white-space:pre-wrap;word-break:break-word;line-height:1.55}
+.post .pimg{display:block;width:100%;max-height:260px;object-fit:cover;border-radius:12px;margin:2px 0 6px;background:#f3eee6}
 .post .lnk{display:block;margin-top:6px;font-size:12px;color:#4B57C8;word-break:break-all}
 .post .pf{display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap;font-size:12px;color:var(--ink2)}
 .post .pf select{width:auto;padding:4px 8px;font-size:12px;border-radius:9px}
@@ -255,6 +256,27 @@ function parseRoster(text){
     const m = l.match(/^(\d+)\s*(?:번)?[\s.,)\t]*\s*(.+)$/);
     return m ? { number: parseInt(m[1], 10), name: m[2].trim() } : null;
   }).filter(Boolean);
+}
+
+// ---------- 사진 ----------
+async function shrinkImage(file){
+  if (file.type === 'image/gif' && file.size < 4e6) return { blob: file, ext: 'gif', type: 'image/gif' };
+  let src;
+  try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+  catch(e){ src = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = URL.createObjectURL(file); }); }
+  const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight;
+  const k = Math.min(1, 1600 / Math.max(w, h));
+  const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(src, 0, 0, c.width, c.height);
+  return { blob: await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.85)), ext: 'jpg', type: 'image/jpeg' };
+}
+async function uploadTeacherImage(file, code){
+  const img = await shrinkImage(file);
+  const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())).replace(/[^A-Za-z0-9-]/g, '');
+  const path = `${code}/teacher/${id}.${img.ext}`;
+  const { error } = await sb.storage.from('post-images').upload(path, img.blob, { contentType: img.type, upsert: false });
+  if (error){ toast('사진을 올리지 못했어요: ' + nice(error.message), true); throw error; }
+  return sb.storage.from('post-images').getPublicUrl(path).data.publicUrl;
 }
 
 // ---------- 모달 ----------
@@ -585,7 +607,8 @@ function renderPortfolio(){
         <h3 style="margin:22px 0 10px;font-size:19px">${esc(g.title)} <span class="muted" style="font-size:13px">${g.list.length}개</span></h3>
         <div class="grid">${g.list.map(p => `<div class="post">
           <div class="who">${p.section_title ? `<span class="chip">${esc(p.section_title)}</span>` : ''}${p.status !== 'approved' ? `<span class="badge pending">${p.status === 'pending' ? '승인 대기' : '숨김'}</span>` : ''}<span class="sp"></span>${new Date(p.created_at).toLocaleDateString('ko-KR')}</div>
-          <div class="txt">${esc(p.content)}</div>
+          ${p.image_url ? `<img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="첨부 사진">` : ''}
+          ${p.content ? `<div class="txt">${esc(p.content)}</div>` : ''}
           ${p.link_url ? `<a class="lnk" href="${esc(p.link_url)}" target="_blank" rel="noopener">${esc(p.link_url)}</a>` : ''}
           <div class="pf">❤️ ${p.like_count} · 💬 ${p.comment_count}</div></div>`).join('')}</div>`).join('');
     }
@@ -608,7 +631,7 @@ async function loadDetail(){
   const id = S.view.id;
   const [sections, posts, missing] = await Promise.all([
     q(sb.from('sections').select('*').eq('board_id', id).order('sort_order')),
-    q(sb.from('posts').select('*, students(number,name), comments(count), likes(count)').eq('board_id', id).order('sort_order').order('created_at')),
+    q(sb.from('posts').select('*, students!posts_student_id_fkey(number,name), comments(count), likes(count)').eq('board_id', id).order('sort_order').order('created_at')),
     q(sb.rpc('missing_students', { p_board_id: id }))
   ]);
   if (S.view.t === 'board' && S.view.id === id) S.detail = { sections, posts, missing };
@@ -645,7 +668,8 @@ function renderDetail(){
     const who = p.student_id ? (p.students ? `${p.students.number}번 ${esc(p.students.name)}` : '알 수 없음') : '👩‍🏫 선생님';
     return `<div class="post ${p.status === 'hidden' ? 'hidden' : ''}" style="background:${COLORS[p.color] || '#fff'}">
       <div class="who">${who}${p.status === 'pending' ? '<span class="badge pending">승인 대기</span>' : ''}${p.status === 'hidden' ? '<span class="badge closed">숨김</span>' : ''}</div>
-      <div class="txt">${esc(p.content)}</div>
+      ${p.image_url ? `<a href="${esc(p.image_url)}" target="_blank" rel="noopener"><img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="첨부 사진"></a>` : ''}
+      ${p.content ? `<div class="txt">${esc(p.content)}</div>` : ''}
       ${p.link_url ? `<a class="lnk" href="${esc(p.link_url)}" target="_blank" rel="noopener">${esc(p.link_url)}</a>` : ''}
       <div class="pf">❤️ ${p.likes?.[0]?.count || 0} 💬 ${p.comments?.[0]?.count || 0}<span class="sp"></span>
         ${p.status === 'pending' ? `<button class="sm main" data-act="post-status" data-id="${p.id}" data-s="approved">승인</button>` : ''}
@@ -1015,14 +1039,20 @@ const ACT = {
     if (!d?.sections.length) return toast('먼저 ⚙️ 설정에서 칼럼을 만들어 주세요', true);
     openModal(`<h3>✏️ 선생님 글</h3><form>
       <label class="f">칼럼</label><select name="sec">${d.sections.map(s => `<option value="${s.id}">${esc(s.title)}</option>`).join('')}</select>
-      <label class="f">내용</label><textarea name="txt" required placeholder="예시 글이나 안내를 써 주세요"></textarea>
+      <label class="f">내용</label><textarea name="txt" placeholder="예시 글이나 안내를 써 주세요"></textarea>
+      <label class="f">사진 (선택)</label><input name="img" type="file" accept="image/*">
       <label class="f">링크 (선택)</label><input name="lnk" type="url" placeholder="https://">
       <label class="f">색</label><div class="swatches">${Object.entries(COLORS).map(([k, v], i) => `<label><input type="radio" name="color" value="${k}" ${i === 3 ? 'checked' : ''} style="display:none"><div class="sw" style="background:${v};border-color:${i === 3 ? 'var(--ink)' : '#eee'}" onclick="this.parentNode.parentNode.querySelectorAll('.sw').forEach(x=>x.style.borderColor='#eee');this.style.borderColor='var(--ink)'"></div></label>`).join('')}</div>
       <div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">올리기</button></div></form>`, m => {
       m.querySelector('form').onsubmit = async e => {
         e.preventDefault();
-        const f = e.target;
-        await q(sb.from('posts').insert({ board_id: S.view.id, section_id: f.sec.value, content: f.txt.value.trim(), link_url: f.lnk.value.trim() || null, color: f.color.value, status:'approved', sort_order: -Date.now() / 1e10 }));
+        const f = e.target, file = f.img.files[0];
+        if (!f.txt.value.trim() && !file) return toast('내용을 쓰거나 사진을 골라 주세요', true);
+        f.querySelector('.main').disabled = true;
+        let image_url = null;
+        try { if (file) image_url = await uploadTeacherImage(file, boardById(S.view.id).share_code); }
+        catch(err){ f.querySelector('.main').disabled = false; return; }
+        await q(sb.from('posts').insert({ board_id: S.view.id, section_id: f.sec.value, content: f.txt.value.trim(), link_url: f.lnk.value.trim() || null, image_url, color: f.color.value, status:'approved', sort_order: -Date.now() / 1e10 }));
         closeModal(); toast('올렸어요'); ping(); await refresh();
       };
     });
