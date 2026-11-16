@@ -399,7 +399,13 @@ async function reload(){
   } catch(e){} finally { reloading = false; }
 }
 // 30초마다 맞춰 보기 (실시간이 잠깐 끊겨도 따라잡기)
-setInterval(() => { if (!document.hidden && !S.editing && !S.drag && !$('.present')) reload(); }, 30000);
+// 실시간 연결이 살아 있으면 2분마다, 끊겼으면 30초마다 맞춰 보기 (데이터 아끼기)
+let lastSync = Date.now();
+setInterval(() => {
+  if (document.hidden || S.editing || S.drag || $('.present')) return;
+  const live = S.channel && S.channel.state === 'joined';
+  if (Date.now() - lastSync >= (live ? 120000 : 30000)){ lastSync = Date.now(); reload(); }
+}, 15000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) reload(); });
 
 // ---------- 고르기 / 작은 막대 ----------
@@ -561,7 +567,7 @@ async function onPickImage(e){
     const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.84));
     const folder = S.teacher ? 'teacher' : await sha256hex(S.token);
     const path = `${CODE}/${folder}/${uid()}.jpg`;
-    const { error } = await sb.storage.from('post-images').upload(path, blob, { contentType:'image/jpeg', upsert:false });
+    const { error } = await sb.storage.from('post-images').upload(path, blob, { contentType:'image/jpeg', upsert:false, cacheControl:'31536000' });
     if (error) throw error;
     const url = sb.storage.from('post-images').getPublicUrl(path).data.publicUrl;
     const fitk = Math.min(1, 640 / c.width, 520 / c.height);
@@ -636,7 +642,7 @@ document.addEventListener('pointermove', e => {
   const el = $(`#page [data-id="${d.id}"]`);
   el.style.left = it.x + 'px'; el.style.top = it.y + 'px'; el.style.width = it.w + 'px'; el.style.height = it.h + 'px';
   const t = performance.now();
-  if (t - d.last > 70){ d.last = t; send('move', { id: it.id, x: it.x, y: it.y, w: it.w, h: it.h }); }
+  if (t - d.last > 120){ d.last = t; send('move', { id: it.id, x: it.x, y: it.y, w: it.w, h: it.h }); }
 });
 
 document.addEventListener('pointerup', endPointer);

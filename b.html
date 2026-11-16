@@ -214,7 +214,7 @@ async function uploadImage(file){
   if (img.blob.size > 5 * 1024 * 1024) throw new Error('BIG: 사진이 너무 커요');
   const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)).replace(/[^A-Za-z0-9-]/g, '');
   const path = `${CODE}/${await sha256hex(S.token)}/${id}.${img.ext}`;
-  const { error } = await sb.storage.from('post-images').upload(path, img.blob, { contentType: img.type, upsert: false });
+  const { error } = await sb.storage.from('post-images').upload(path, img.blob, { contentType: img.type, upsert: false, cacheControl: '31536000' });
   if (error) throw error;
   return sb.storage.from('post-images').getPublicUrl(path).data.publicUrl;
 }
@@ -598,7 +598,7 @@ let pollTimer = null, reloading = false;
 function startLive(){
   if (S.channel) return;
   S.channel = sb.channel('board:' + CODE).on('broadcast', { event:'changed' }, () => softReload()).subscribe();
-  pollTimer = setInterval(softReload, 10000);
+  pollTimer = setInterval(softReload, 30000);   // 실시간 신호가 기본, 이건 놓친 것 따라잡기용
 }
 function stopLive(){
   if (S.channel){ sb.removeChannel(S.channel); S.channel = null; }

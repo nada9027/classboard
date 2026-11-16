@@ -305,7 +305,7 @@ async function uploadTeacherImage(file, code){
   const img = await shrinkImage(file);
   const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())).replace(/[^A-Za-z0-9-]/g, '');
   const path = `${code}/teacher/${id}.${img.ext}`;
-  const { error } = await sb.storage.from('post-images').upload(path, img.blob, { contentType: img.type, upsert: false });
+  const { error } = await sb.storage.from('post-images').upload(path, img.blob, { contentType: img.type, upsert: false, cacheControl: '31536000' });
   if (error){ toast('사진을 올리지 못했어요: ' + nice(error.message), true); throw error; }
   return sb.storage.from('post-images').getPublicUrl(path).data.publicUrl;
 }
@@ -828,7 +828,7 @@ function startLive(){
   S.channel = sb.channel('board:' + b.share_code)
     .on('broadcast', { event:'changed' }, () => softReload())
     .subscribe();
-  S.timer = setInterval(softReload, 15000);
+  S.timer = setInterval(softReload, 30000);
 }
 function stopLive(){
   if (S.channel){ sb.removeChannel(S.channel); S.channel = null; }
