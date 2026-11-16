@@ -762,7 +762,7 @@ function renderCanvasGroups(b, d){
   return `
     <div class="info">
       <div class="infobox">🎨 모둠 <b>${d.groups.length}</b>개 · 배정된 학생 <b>${act.length - un.length}</b> / ${act.length}명</div>
-      <div class="infobox">🙋 아직 모둠 없는 학생 ${un.length ? un.map(s => `<span class="chip">${s.number} ${esc(s.name)}</span>`).join('') : '<b>없음 🎉</b>'}</div>
+      <div class="infobox">🙋 아직 모둠을 안 고른 학생 ${un.length ? un.map(s => `<span class="chip">${s.number} ${esc(s.name)}</span>`).join('') : '<b>없음 🎉</b>'}</div>
       <div class="row"><button class="sm" data-act="cg-auto">🎲 자동으로 나누기</button><button class="sm" data-act="cg-add">＋ 모둠 추가</button></div>
     </div>
     <div class="grid">${d.groups.map(g => `
@@ -779,7 +779,7 @@ function renderCanvasGroups(b, d){
           </div>
         </div>
       </div>`).join('')}</div>
-    <p class="muted" style="font-size:13px;line-height:1.7;margin-top:14px">💡 학생은 보드 링크나 QR로 들어와 비밀번호를 누르면 자기 모둠 캔버스로 바로 가요. 선생님이 ↗ 열기로 들어가면 모든 것을 고치고 🔒 잠글 수 있고, ‘📤 모든 모둠에 복사’로 활동지 틀을 나눠 줄 수 있어요.</p>`;
+    <p class="muted" style="font-size:13px;line-height:1.7;margin-top:14px">💡 학생은 보드 링크나 QR로 들어와 비밀번호를 누른 뒤 <b>들어올 때마다 자기 모둠을 골라</b> 들어가고, 자기 모둠 캔버스만 볼 수 있어요. 잘못 고른 학생은 스스로 ‘🔁 모둠 바꾸기’를 하거나, 선생님이 👥 모둠원에서 옮겨 주세요. 선생님이 ↗ 열기로 들어가면 모든 것을 고치고 🔒 잠글 수 있고, ‘📤 모든 모둠에 복사’로 활동지 틀을 나눠 줄 수 있어요.</p>`;
 }
 async function saveGroups(changes){
   for (const g of changes) await q(sb.from('canvas_groups').update({ members: g.members }).eq('id', g.id));
@@ -851,7 +851,7 @@ function boardFormHtml(b, sections, layout){
     <div class="only-canvas" ${layout === 'canvas' ? '' : 'hidden'}>
       ${b ? '<div class="muted" style="font-size:13px;margin-top:12px">🎨 모둠과 모둠원은 보드 관리 화면에서 정해요.</div>'
           : `<label class="f">모둠 수</label><input name="groups" type="number" min="1" max="12" value="6" style="width:120px">
-             <div class="muted" style="font-size:12px;margin-top:6px">만든 뒤 보드 관리 화면에서 모둠원을 정하거나 자동으로 나눌 수 있어요.</div>`}
+             <div class="muted" style="font-size:12px;margin-top:6px">학생이 들어올 때마다 자기 모둠을 골라요. 학생은 자기 모둠 캔버스만 볼 수 있어요.</div>`}
     </div>
 
     <label class="f">배경</label>

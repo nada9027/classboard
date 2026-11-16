@@ -146,6 +146,7 @@ async function call(fn, args={}){
   if (error){
     const c = errCode(error);
     if (c === 'NEED_JOIN'){ location.replace('b.html?b=' + encodeURIComponent(CODE)); throw error; }
+    if (c === 'NOT_MEMBER' && !S.teacher){ toast('이 모둠에서 빠졌어요. 모둠을 다시 골라 줘', true); setTimeout(() => location.replace('c.html?b=' + encodeURIComponent(CODE)), 1200); throw error; }
     if (c === 'BOARD_CLOSED'){ showMsg('🔒', '지금은 닫힌 보드예요', '선생님이 다시 열어 주시면 들어올 수 있어요.'); throw error; }
     toast(errMsg(error), true); throw error;
   }
@@ -179,14 +180,36 @@ async function start(){
   if (!S.teacher && !S.token) return location.replace('b.html?b=' + encodeURIComponent(CODE));
   document.title = S.board.title + ' · 모둠 캔버스';
   const want = P.get('g');
-  const g = S.groups.find(x => x.id === want) || S.groups.find(x => x.mine);
-  if (g) return openGroup(g.id, P.get('present') === '1');
-  if (!S.groups.length) return showMsg('🧩', '아직 모둠이 없어요', '선생님이 모둠을 만들면 여기서 함께 그릴 수 있어요.');
-  // 모둠이 정해지지 않은 학생 또는 선생님 → 모둠 고르기(구경)
-  showMsg(S.teacher ? '🎨' : '🙋', S.teacher ? '어느 모둠을 볼까요?' : '아직 내 모둠이 정해지지 않았어요',
-    S.teacher ? '' : '선생님이 모둠을 정해 주시면 바로 함께 만들 수 있어요. 그동안 다른 모둠을 구경해 볼까요?',
-    `<div class="glist">${S.groups.map(x => `<button data-g="${x.id}">${esc(x.name)}<div class="muted" style="font-family:'Gowun Dodum';font-size:13px">${x.members.map(m => ani(m.number)).join('')}</div></button>`).join('')}</div>`);
-  document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => openGroup(b.dataset.g));
+  const mine = S.groups.find(x => x.mine);
+  // 선생님: 링크로 연 모둠 / 학생: 자기 모둠 (없으면 고르기)
+  if (S.teacher && S.groups.some(x => x.id === want)) return openGroup(want, P.get('present') === '1');
+  // 학생은 들어올 때마다 모둠을 고름 (모둠이 자주 바뀌니까)
+  if (!S.groups.length) return showMsg('🧩', '아직 모둠이 없어요', '선생님이 모둠을 만들면 여기서 함께 그릴 수 있어요.', backBtn());
+  if (S.teacher) return groupPicker('어느 모둠을 볼까요?', '', false);
+  groupPicker('우리 모둠을 골라 줘!', '내가 속한 모둠을 누르면 친구들과 함께 만들 수 있어요.', true);
+}
+
+const backBtn = () => S.teacher ? '' : `<button class="soft" style="margin-top:14px" data-a="logout">← 뒤로 (처음 화면)</button>`;
+// 모둠 고르기: 학생은 누르면 그 모둠에 들어감, 선생님은 보기
+function groupPicker(title, sub, join){
+  showMsg(join ? '🙋' : '🎨', title, sub,
+    `<div class="glist">${S.groups.map(x => `<button data-g="${x.id}" ${x.mine ? 'style="outline:3px solid #7C8CFF"' : ''}>${esc(x.name)}${x.mine ? '<div style="font-family:\'Gowun Dodum\';font-size:12px;color:#4B57C8">지금 내 모둠</div>' : ''}<div class="muted" style="font-family:'Gowun Dodum';font-size:13px;min-height:18px">${x.members.map(m => ani(m.number)).join('') || '아직 아무도 없어요'}</div></button>`).join('')}</div>${backBtn()}`);
+  document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
+    const g = S.groups.find(x => x.id === b.dataset.g);
+    if (!join || g.mine) return openGroup(g.id);
+    sheet(`<h3>${esc(g.name)}에 들어갈까요?</h3>
+      <p class="muted">${g.members.length ? '지금 ' + g.members.map(m => `${ani(m.number)} ${esc(m.name)}`).join(', ') + ' 친구가 있어요.' : '첫 번째로 들어가요!'}</p>
+      <div class="sfoot"><button class="soft" data-close>← 뒤로</button><button class="main" id="y">들어가기</button></div>`, sh => {
+      sh.querySelector('#y').onclick = async () => {
+        try {
+          await call('canvas_join_group', { p_group: g.id });
+          closeLayer();
+          const data = await call('canvas_board'); S.groups = data.groups;
+          toast(`${g.name}에 들어왔어요! 🎉`); openGroup(g.id);
+        } catch(e){ if (/canvas_join_group/.test(e?.message || '')) toast('선생님이 업데이트를 마치면 고를 수 있어요', true); }
+      };
+    });
+  });
 }
 
 async function openGroup(gid, present=false){
@@ -211,8 +234,9 @@ function renderShell(){
       <div class="online" id="online"></div>
       <span class="sp"></span>
       ${!S.canEdit ? '<span class="ro">👀 구경 중</span>' : ''}
-      ${others.length ? `<select id="gsel" aria-label="다른 모둠 보기"><option value="">${S.group.mine || S.teacher ? '다른 모둠 보기' : '모둠 바꿔 보기'}</option>${S.groups.map(g => `<option value="${g.id}" ${g.id === S.group.id ? 'disabled' : ''}>${esc(g.name)}${g.mine ? ' (우리 모둠)' : ''}</option>`).join('')}</select>` : ''}
+      ${S.teacher && others.length ? `<select id="gsel" aria-label="다른 모둠 보기"><option value="">다른 모둠 보기</option>${S.groups.map(g => `<option value="${g.id}" ${g.id === S.group.id ? 'disabled' : ''}>${esc(g.name)}${g.mine ? ' (우리 모둠)' : ''}</option>`).join('')}</select>` : ''}
       <button class="soft" data-a="present" title="발표하기">▶ 발표</button>
+      ${!S.teacher && S.board.link_status === 'open' ? '<button class="soft" data-a="regroup" title="모둠 다시 고르기">🔁 모둠 바꾸기</button>' : ''}
       ${S.teacher ? '<button class="soft" data-a="back" title="교사 화면">✕</button>' : `<button class="soft" data-a="logout" title="다른 친구가 쓸 때">🚪 나가기</button>`}
     </header>
     <div class="pages" id="pages"></div>
@@ -678,6 +702,7 @@ document.addEventListener('click', async e => {
     if (a === 'page-menu') pageMenu();
     if (a === 'present') startPresent();
     if (a === 'back') location.href = 'teacher.html';
+    if (a === 'regroup'){ if (S.channel){ sb.removeChannel(S.channel); S.channel = null; } const d = await call('canvas_board'); S.groups = d.groups; groupPicker('어느 모둠으로 갈까요?', '다른 모둠을 고르면 지금 모둠에서는 빠져요.', true); }
     if (a === 'logout') sheet(`<h3>나갈까요?</h3><p class="muted">다음 친구가 이 패드를 쓸 때 눌러 주세요.</p><div class="sfoot"><button class="soft" data-close>아니요</button><button class="main" id="y">나가기</button></div>`, sh => sh.querySelector('#y').onclick = () => {
       try { localStorage.removeItem('cb_me_' + CODE); localStorage.removeItem('cb_me_last'); } catch(e){}
       location.replace('b.html?b=' + encodeURIComponent(CODE));
