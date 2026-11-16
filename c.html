@@ -210,7 +210,7 @@ function groupPicker(title, sub, join){
           closeLayer();
           const data = await call('canvas_board'); S.groups = data.groups;
           toast(`${g.name}에 들어왔어요! 🎉`); openGroup(g.id);
-        } catch(e){ if (/canvas_join_group/.test(e?.message || '')) toast('선생님이 업데이트를 마치면 고를 수 있어요', true); }
+        } catch(e){ if (/canvas_join_group/.test(e?.message || '')) toast('모둠 고르기 기능이 서버에 아직 없어요. 선생님께 알려 주세요', true); }
       };
     });
   });
