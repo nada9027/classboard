@@ -224,13 +224,23 @@ async function start(){
     S.board = data.board; S.sections = data.sections; S.students = data.students;
     document.title = S.board.title + ' · 우리반 보드';
   } catch(e){ return; }
-  // 자동 입장: 이 보드 기록 → 없으면 같은 반 다른 보드에서 골랐던 번호
+  // 항상 이름부터 고르기. 이 패드에 기억된 친구는 표시만 해 두고,
+  // 그 친구가 자기 이름을 누르면 비밀번호 없이 바로 들어감
+  S.saved = null;
   for (const saved of [store.get(KEY), store.get(KEY_LAST)]){
-    const stu = saved?.token && S.students.find(s => s.id === saved.me?.id);
-    if (stu){ S.me = { id: stu.id, number: stu.number, name: stu.name }; S.token = saved.token; store.set(KEY, { me: S.me, token: S.token }); break; }
+    if (saved?.token && S.students.some(s => s.id === saved.me?.id)){ S.saved = saved; break; }
   }
-  if (!S.me) return showPicker();
-  await afterLogin();
+  showPicker();
+}
+function pick(stu){
+  if (S.saved && S.saved.me?.id === stu.id){
+    // 이 패드에서 이미 들어왔던 친구 → 바로 입장 (기록이 만료됐으면 비밀번호로)
+    S.me = { id: stu.id, number: stu.number, name: stu.name }; S.token = S.saved.token;
+    store.set(KEY, { me: S.me, token: S.token }); store.set(KEY_LAST, { me: S.me, token: S.token });
+    toast(`${ani(stu.number)} 반가워, ${stu.name}!`);
+    return afterLogin().catch(() => {});
+  }
+  stu.has_pin ? pinPad(stu) : join(stu);
 }
 
 // 들어온 다음: PIN이 없으면 먼저 정하기 → 모둠 캔버스면 캔버스로, 아니면 보드로
@@ -238,6 +248,7 @@ async function afterLogin(){
   const stu = S.students.find(s => s.id === S.me.id);
   if (stu && !stu.has_pin){
     const ok = await setPinSheet(stu);
+    if (ok === 'back') return logout();     // 잘못 고른 번호 → 처음으로
     if (ok) stu.has_pin = true;
   }
   if (S.board.layout === 'canvas') return location.replace('c.html?b=' + encodeURIComponent(CODE));
@@ -250,12 +261,15 @@ function setPinSheet(stu){
       <h3>${first ? '한 번 더 눌러 줘' : '내 비밀번호 정하기'}</h3>
       <div class="muted">${msg || (first ? '방금 정한 숫자 4개를 다시 눌러요' : '숫자 4개로 나만 아는 비밀번호를 정해요.<br>다음부터 들어올 때 필요해요!')}</div>
       <div class="pindots" id="dots"></div>
-      <div class="pin">${[1,2,3,4,5,6,7,8,9].map(n => `<button data-n="${n}">${n}</button>`).join('')}<button data-n="back">⌫</button><button data-n="0">0</button><button data-n="ok" class="main">확인</button></div></div>`, sh => {
+      <div class="pin">${[1,2,3,4,5,6,7,8,9].map(n => `<button data-n="${n}">${n}</button>`).join('')}<button data-n="back">⌫</button><button data-n="0">0</button><button data-n="ok" class="main">확인</button></div>
+      <div class="sfoot" style="justify-content:center">${first ? '<button class="soft" data-n="again">처음부터 다시</button>' : ''}<button class="soft" data-n="leave">← 뒤로 (번호 다시 고르기)</button></div></div>`, sh => {
       const dots = () => sh.querySelector('#dots').innerHTML = [0,1,2,3].map(i => `<i class="${i < pin.length ? 'on' : ''}"></i>`).join('');
       dots();
       sh.querySelector('.sheet-bg')?.removeEventListener?.('click', () => {});
       sh.querySelectorAll('[data-n]').forEach(b => b.onclick = async () => {
         const n = b.dataset.n;
+        if (n === 'leave'){ closeSheet(); return done('back'); }
+        if (n === 'again'){ first = null; pin = ''; return draw(); }
         if (n === 'back'){ pin = pin.slice(0, -1); return dots(); }
         if (n !== 'ok'){ if (pin.length < 4){ pin += n; dots(); } if (pin.length < 4) return; }
         if (pin.length < 4) return;
@@ -288,7 +302,7 @@ function showPicker(){
   <div class="pick-wrap">
     <div class="pick-title"><div class="bigemoji">🧸</div><h1>${esc(S.board.title)}</h1><p class="muted" style="font-size:19px">나는 몇 번일까? 내 번호를 눌러 줘!</p></div>
     <div class="pick-grid">${S.students.map(s => `
-      <button class="stu" data-act="pick" data-id="${s.id}"><span class="ani">${ani(s.number)}</span><span class="num">${s.number}번</span><span class="nm">${esc(s.name)}</span></button>`).join('')}
+      <button class="stu" data-act="pick" data-id="${s.id}" ${S.saved?.me?.id === s.id ? 'style="outline:3px solid #7C8CFF"' : ''}><span class="ani">${ani(s.number)}</span><span class="num">${s.number}번</span><span class="nm">${esc(s.name)}</span></button>`).join('')}
     </div>
     ${S.students.length ? '' : '<p class="muted" style="text-align:center">아직 학생 명단이 없어요. 선생님께 말씀드려 주세요.</p>'}
   </div>`;
@@ -310,7 +324,7 @@ function pinPad(stu, wrong=false){
     <h3>${stu.number}번 ${esc(stu.name)}</h3><div class="muted">${wrong ? '앗, 비밀번호가 달라요. 다시 눌러 볼까?' : '내 비밀번호를 눌러 줘'}</div>
     <div class="pindots" id="dots"></div>
     <div class="pin">${[1,2,3,4,5,6,7,8,9].map(n => `<button data-n="${n}">${n}</button>`).join('')}<button data-n="back">⌫</button><button data-n="0">0</button><button data-n="ok" class="main">확인</button></div>
-    <div class="sfoot" style="justify-content:center"><button class="soft" data-close>다른 번호 고르기</button></div></div>`, sh => {
+    <div class="sfoot" style="justify-content:center"><button class="soft" data-close>← 뒤로 (번호 다시 고르기)</button></div></div>`, sh => {
     const dots = () => sh.querySelector('#dots').innerHTML = Array.from({ length: Math.max(4, pin.length) }, (_, i) => `<i class="${i < pin.length ? 'on' : ''}"></i>`).join('');
     dots();
     sh.querySelectorAll('[data-n]').forEach(b => b.onclick = () => {
@@ -323,7 +337,7 @@ function pinPad(stu, wrong=false){
   });
 }
 function logout(expired=false){
-  store.del(KEY); store.del(KEY_LAST); S.me = null; S.token = null;
+  store.del(KEY); store.del(KEY_LAST); S.me = null; S.token = null; S.saved = null;
   if (expired) toast('다시 내 번호를 골라 줘', true);
   showPicker();
 }
@@ -577,7 +591,7 @@ document.addEventListener('click', e => {
   if (!el) return;
   const id = el.dataset.id;
   switch (el.dataset.act){
-    case 'pick': { const s = S.students.find(x => x.id === id); s.has_pin ? pinPad(s) : join(s); break; }
+    case 'pick': { const s = S.students.find(x => x.id === id); pick(s); break; }
     case 'logout': openSheet(`<h3>나갈까요?</h3><p class="muted">다음 친구가 이 패드를 쓸 때 눌러 주세요.</p><div class="sfoot"><button class="soft" data-close>아니요</button><button class="main" id="lo">나가기</button></div>`, sh => sh.querySelector('#lo').onclick = () => { closeSheet(); logout(); }); break;
     case 'write': writeSheet(id); break;
     case 'mine': mineMenu(id); break;
