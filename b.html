@@ -231,6 +231,7 @@ async function start(){
     if (saved?.token && S.students.some(s => s.id === saved.me?.id)){ S.saved = saved; break; }
   }
   showPicker();
+  if (new URLSearchParams(location.search).get('expired')){ toast('다시 내 이름을 골라 줘', true); history.replaceState(null, '', 'b.html?b=' + encodeURIComponent(CODE)); }
 }
 function pick(stu){
   if (S.saved && S.saved.me?.id === stu.id){
@@ -251,7 +252,12 @@ async function afterLogin(){
     if (ok === 'back') return logout();     // 잘못 고른 번호 → 처음으로
     if (ok) stu.has_pin = true;
   }
-  if (S.board.layout === 'canvas') return location.replace('c.html?b=' + encodeURIComponent(CODE));
+  if (S.board.layout === 'canvas'){
+    // 입장 기록이 살아 있는지 먼저 확인 (만료면 call()이 이름 고르기로 돌려보냄)
+    try { await call('canvas_board', { p_token: S.token }); }
+    catch(e){ return; }
+    return location.replace('c.html?b=' + encodeURIComponent(CODE));
+  }
   await enterBoard();
 }
 function setPinSheet(stu){
@@ -278,6 +284,7 @@ function setPinSheet(stu){
         if (pin !== first){ first = null; pin = ''; return draw('두 번 누른 숫자가 달라요. 처음부터 다시 정해요'); }
         try {
           const { error } = await sb.rpc('student_set_pin', { p_code: CODE, p_token: S.token, p_pin: pin });
+          if (error && /NEED_JOIN/.test(error.message)){ closeSheet(); return done('back'); }
           if (error && !/HAS_PIN/.test(error.message)){
             if (/BAD_PIN/.test(error.message)){ first = null; pin = ''; return draw('숫자 4자리로 정해 줘'); }
             closeSheet(); return done(false);   // 아직 업데이트 전이면 그냥 넘어가기

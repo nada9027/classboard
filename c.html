@@ -145,7 +145,11 @@ async function call(fn, args={}){
   const { data, error } = await sb.rpc(fn, { p_code: CODE, p_token: S.token, ...args });
   if (error){
     const c = errCode(error);
-    if (c === 'NEED_JOIN'){ location.replace('b.html?b=' + encodeURIComponent(CODE)); throw error; }
+    if (c === 'NEED_JOIN'){
+      // 이 패드의 입장 기록이 만료됨(PIN 초기화 등) → 기록을 지우고 이름 고르기로
+      try { localStorage.removeItem('cb_me_' + CODE); localStorage.removeItem('cb_me_last'); } catch(e){}
+      location.replace('b.html?b=' + encodeURIComponent(CODE) + '&expired=1'); throw error;
+    }
     if (c === 'NOT_MEMBER' && !S.teacher){ toast('이 모둠에서 빠졌어요. 모둠을 다시 골라 줘', true); setTimeout(() => location.replace('c.html?b=' + encodeURIComponent(CODE)), 1200); throw error; }
     if (c === 'BOARD_CLOSED'){ showMsg('🔒', '지금은 닫힌 보드예요', '선생님이 다시 열어 주시면 들어올 수 있어요.'); throw error; }
     toast(errMsg(error), true); throw error;
