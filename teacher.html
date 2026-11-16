@@ -73,7 +73,8 @@ body.is-dragging .side::before{content:'여기 폴더 위에 놓으세요 👇';
 .pv-col i{height:12px}
 .pv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
 .laybar{background:#FBF6EE;border-radius:16px;padding:12px;margin:10px 0 4px}
-.laybar .pv{flex-basis:70px;height:48px;padding:5px}
+.laybar .pv{flex-basis:70px;width:70px;height:48px;padding:5px}
+.pv{overflow:hidden;width:96px}
 .freeboard{padding:16px;border-radius:22px;min-height:300px}
 .freeboard.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;align-items:start}
 .freeboard.grid .post{margin:0;min-height:140px}
@@ -181,12 +182,22 @@ table.t input{padding:6px 9px;border-radius:9px}
   body.print-qr .modal{box-shadow:none;width:100%;max-height:none}
   body.print-qr .mfoot{display:none}
   body.print-qr .qrbox h3{font-size:40px}
+  body.print-pin > *:not(#printzone){display:none!important}
+  body.print-pin #printzone{display:block!important}
 }
+#printzone{display:none}
+.pincards{display:grid;grid-template-columns:repeat(3,1fr);gap:0;font-family:'Gowun Dodum',sans-serif}
+.pincard{border:1.5px dashed #bbb;padding:18px 10px;text-align:center;break-inside:avoid;height:46mm;display:flex;flex-direction:column;justify-content:center;gap:4px}
+.pincard .a{font-size:34px}
+.pincard .n{font-family:'Jua';font-size:20px}
+.pincard .p{font-family:ui-monospace,Menlo,monospace;font-size:28px;letter-spacing:6px;background:#FFF4BF;border-radius:10px;padding:4px 0;margin:4px 16px 0}
+.pincard .c{font-size:11px;color:#888}
 </style>
 </head>
 <body>
 <div id="app"><div class="loading">불러오는 중…</div></div>
 <div id="modal-root"></div>
+<div id="printzone"></div>
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -210,7 +221,7 @@ const BGS = [
   '#FFF4BF', '#D3F5E6', '#FFE0D1'
 ];
 const LINK_LABEL = {open:'열림', readonly:'보기만', closed:'닫힘'};
-const LAYOUT_LABEL = {columns:'칼럼형', wall:'담벼락형', grid:'그리드형'};
+const LAYOUT_LABEL = {columns:'칼럼형', wall:'담벼락형', grid:'그리드형', canvas:'모둠 캔버스'};
 
 const S = {
   user:null, classes:[], classId:null,
@@ -600,16 +611,18 @@ function renderStudents(cls){
   return `
     <div class="mh"><h2>🧒 학생 명단</h2><span class="muted">${esc(cls?.name || '')}</span><span class="sp"></span>
       <button data-act="class-settings">⚙️ 학급 설정</button>
+      <button data-act="pin-make">🔢 PIN 한 번에 만들기</button>
+      <button data-act="pin-print">🖨 PIN 카드 인쇄</button>
       <button class="main" data-act="add-students">＋ 학생 추가</button></div>
-    <div class="muted" style="font-size:13px;margin-bottom:12px">이름을 누르면 그 학생의 모든 작업물을 모아 볼 수 있어요. 비밀번호(PIN)를 넣으면 학생이 입장할 때 입력해야 해요.</div>
+    <div class="muted" style="font-size:13px;margin-bottom:12px">이름을 누르면 그 학생의 모든 작업물을 모아 볼 수 있어요. PIN이 비어 있는 학생은 처음 들어올 때 직접 4자리 비밀번호를 정해요. 잊어버리면 🔄 초기화를 누르세요.</div>
     ${S.students.length ? `<table class="t">
-      <tr><th style="width:80px">번호</th><th>이름</th><th style="width:130px">PIN (선택)</th><th style="width:110px">작업물</th><th style="width:110px">상태</th></tr>
+      <tr><th style="width:80px">번호</th><th>이름</th><th style="width:190px">PIN</th><th style="width:110px">작업물</th><th style="width:200px">상태</th></tr>
       ${S.students.map(s => `<tr style="${s.active ? '' : 'opacity:.5'}">
         <td><input value="${s.number}" type="number" data-stu="${s.id}" data-k="number"></td>
         <td><input value="${esc(s.name)}" data-stu="${s.id}" data-k="name"></td>
-        <td><input value="${esc(s.pin || '')}" inputmode="numeric" maxlength="6" placeholder="없음" data-stu="${s.id}" data-k="pin"></td>
+        <td><div class="row" style="flex-wrap:nowrap"><input value="${esc(s.pin || '')}" inputmode="numeric" maxlength="6" placeholder="학생이 정함" data-stu="${s.id}" data-k="pin" style="width:96px">${s.pin ? `<button class="sm" data-act="pin-reset" data-id="${s.id}" title="PIN 초기화">🔄 초기화</button>` : ''}</div></td>
         <td><button class="sm" data-act="portfolio" data-id="${s.id}">모아 보기</button></td>
-        <td><button class="sm ${s.active ? 'ghost' : ''}" data-act="toggle-student" data-id="${s.id}">${s.active ? '전출 처리' : '다시 활성'}</button></td>
+        <td><div class="row" style="flex-wrap:nowrap"><button class="sm ${s.active ? 'ghost' : ''}" data-act="toggle-student" data-id="${s.id}">${s.active ? '전출 처리' : '다시 활성'}</button><button class="sm ghost danger" data-act="delete-student" data-id="${s.id}" title="명단에서 삭제">🗑 삭제</button></div></td>
       </tr>`).join('')}
     </table>` : `<div class="empty"><div class="big">🧒</div>학생이 아직 없어요. <b>＋ 학생 추가</b>를 눌러 명단을 붙여넣어 주세요.</div>`}`;
 }
@@ -666,6 +679,11 @@ async function openBoard(id){
 }
 async function loadDetail(){
   const id = S.view.id;
+  if (boardById(id)?.layout === 'canvas'){
+    const { data, error } = await sb.from('canvas_groups').select('*').eq('board_id', id).order('sort_order').order('created_at');
+    if (S.view.t === 'board' && S.view.id === id) S.detail = { canvas: true, groups: data || [], err: error ? error.message : null };
+    return;
+  }
   const [sections, posts, missing] = await Promise.all([
     q(sb.from('sections').select('*').eq('board_id', id).order('sort_order')),
     q(sb.from('posts').select('*, students!posts_student_id_fkey(number,name), comments(count), likes(count)').eq('board_id', id).order('sort_order').order('created_at')),
@@ -686,10 +704,11 @@ function renderDetail(){
       <a href="${esc(studentUrl(b.share_code))}" target="_blank" rel="noopener"><button class="sm">↗ 학생 화면</button></a>
       <button class="sm" data-act="copy-link" data-id="${b.id}">🔗 링크</button>
       <button class="sm" data-act="qr" data-id="${b.id}">📱 QR</button>
-      <button class="sm" data-act="teacher-post">✏️ 선생님 글</button>
+      ${b.layout === 'canvas' ? '' : '<button class="sm" data-act="teacher-post">✏️ 선생님 글</button>'}
       <button class="sm" data-act="board-settings" data-id="${b.id}">⚙️ 설정</button>
     </div>`;
   if (!d) return head + '<div class="loading">불러오는 중…</div>';
+  if (d.canvas) return head + renderCanvasGroups(b, d);
 
   d.posts.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
   const pending = d.posts.filter(p => p.status === 'pending');
@@ -730,6 +749,42 @@ function renderDetail(){
   return head + info + board;
 }
 
+
+// ---------- 모둠 캔버스 관리 ----------
+const ANI = ['🐶','🐱','🐰','🐻','🐼','🦊','🐨','🐯','🦁','🐸','🐷','🐵','🐥','🐧','🦄','🐹','🐮','🐙','🦋','🐞','🐳','🦔','🐿️','🦉','🐢','🐬','🐝','🦕','🐲','🦒','🐌','🦀','🐠','🦩','🐣'];
+const canvasUrl = (b, g, present) => new URL(`c.html?b=${b.share_code}&g=${g}${present ? '&present=1' : ''}`, location.href).href;
+function renderCanvasGroups(b, d){
+  if (d.err) return `<div class="empty"><div class="big">🧩</div>모둠 캔버스를 쓰려면 Supabase에서 <b>update_03_canvas.sql</b>을 먼저 실행해 주세요.</div>`;
+  const act = S.students.filter(s => s.active);
+  const assigned = new Set(d.groups.flatMap(g => g.members || []));
+  const un = act.filter(s => !assigned.has(s.id));
+  const stu = id => S.students.find(s => s.id === id);
+  return `
+    <div class="info">
+      <div class="infobox">🎨 모둠 <b>${d.groups.length}</b>개 · 배정된 학생 <b>${act.length - un.length}</b> / ${act.length}명</div>
+      <div class="infobox">🙋 아직 모둠 없는 학생 ${un.length ? un.map(s => `<span class="chip">${s.number} ${esc(s.name)}</span>`).join('') : '<b>없음 🎉</b>'}</div>
+      <div class="row"><button class="sm" data-act="cg-auto">🎲 자동으로 나누기</button><button class="sm" data-act="cg-add">＋ 모둠 추가</button></div>
+    </div>
+    <div class="grid">${d.groups.map(g => `
+      <div class="bcard" style="cursor:default">
+        <div class="bthumb" style="background:${esc(b.background || BGS[0])};height:70px"><span class="badge">${(g.members || []).length}명</span></div>
+        <div class="bbody">
+          <div class="row" style="margin-bottom:8px"><div class="btitle" style="margin:0">${esc(g.name)}</div><button class="sm ghost" data-act="cg-rename" data-id="${g.id}" title="이름 바꾸기">✏️</button></div>
+          <div style="min-height:34px;margin-bottom:10px">${(g.members || []).map(stu).filter(Boolean).map(s => `<span class="chip">${ANI[(s.number - 1) % ANI.length]} ${s.number} ${esc(s.name)}</span>`).join('') || '<span class="muted" style="font-size:13px">모둠원이 없어요</span>'}</div>
+          <div class="bact">
+            <button class="sm" data-act="cg-members" data-id="${g.id}">👥 모둠원</button>
+            <a href="${esc(canvasUrl(b, g.id))}" target="_blank" rel="noopener"><button class="sm">↗ 열기</button></a>
+            <a href="${esc(canvasUrl(b, g.id, true))}" target="_blank" rel="noopener"><button class="sm">▶ 발표</button></a>
+            <span class="sp"></span><button class="sm ghost danger" data-act="cg-del" data-id="${g.id}" title="모둠 삭제">🗑</button>
+          </div>
+        </div>
+      </div>`).join('')}</div>
+    <p class="muted" style="font-size:13px;line-height:1.7;margin-top:14px">💡 학생은 보드 링크나 QR로 들어와 비밀번호를 누르면 자기 모둠 캔버스로 바로 가요. 선생님이 ↗ 열기로 들어가면 모든 것을 고치고 🔒 잠글 수 있고, ‘📤 모든 모둠에 복사’로 활동지 틀을 나눠 줄 수 있어요.</p>`;
+}
+async function saveGroups(changes){
+  for (const g of changes) await q(sb.from('canvas_groups').update({ members: g.members }).eq('id', g.id));
+}
+
 // 실시간: 학생 화면과 같은 채널을 들음
 function startLive(){
   const b = boardById(S.view.id);
@@ -759,11 +814,13 @@ function folderOptions(sel){
 const LAYOUTS = {
   columns: { name:'칼럼형', icon:'🗂️', desc:'주제별로 칸을 나눠 모아요', ex:'예) 좋은 점 / 아쉬운 점 / 궁금한 점' },
   grid:    { name:'그리드형', icon:'🔲', desc:'카드가 바둑판처럼 같은 크기로 줄 서요', ex:'예) 오늘 배운 점, 작품 전시, 자기소개' },
-  wall:    { name:'담벼락형', icon:'🧱', desc:'글 길이대로 벽돌처럼 차곡차곡 쌓여요', ex:'예) 자유롭게 소감 나누기, 칭찬 릴레이' }
+  wall:    { name:'담벼락형', icon:'🧱', desc:'글 길이대로 벽돌처럼 차곡차곡 쌓여요', ex:'예) 자유롭게 소감 나누기, 칭찬 릴레이' },
+  canvas:  { name:'모둠 캔버스', icon:'🎨', desc:'모둠별로 사진·포스트잇·그림으로 발표자료를 함께 만들어요', ex:'예) 모둠 조사 발표, 생각 지도, 탐구 보고서' }
 };
 function layoutPreview(k){
   if (k === 'columns') return `<div class="pv pv-col">${[3,2,3].map(n => `<div>${'<i></i>'.repeat(n)}</div>`).join('')}</div>`;
   if (k === 'grid') return `<div class="pv pv-grid">${'<i></i>'.repeat(6)}</div>`;
+  if (k === 'canvas') return `<div class="pv" style="position:relative;display:block"><i style="position:absolute;left:8px;top:8px;width:30px;height:24px;background:#FFF4BF"></i><i style="position:absolute;left:44px;top:18px;width:36px;height:28px;background:#D3F5E6"></i><i style="position:absolute;left:14px;top:38px;width:26px;height:18px;background:#FFE0D1"></i><svg style="position:absolute;left:48px;top:4px" width="40" height="14"><path d="M2 10 Q12 0 22 8 T38 6" stroke="#7C8CFF" stroke-width="2.5" fill="none"/></svg></div>`;
   return `<div class="pv pv-wall"><div><i style="height:22px"></i><i style="height:12px"></i></div><div><i style="height:12px"></i><i style="height:24px"></i></div><div><i style="height:18px"></i><i style="height:16px"></i></div></div>`;
 }
 function layoutCard(k, act, on){
@@ -780,8 +837,8 @@ function boardFormHtml(b, sections, layout){
       ${b ? `<div class="muted" style="font-size:13px;margin-bottom:6px">모양</div><div class="seg" style="width:100%">${Object.keys(LAYOUTS).map(k => `<button type="button" style="flex:1" class="${k === layout ? 'on' : ''}" data-act="switch-layout" data-id="${k}">${LAYOUTS[k].icon} ${LAYOUTS[k].name}</button>`).join('')}</div>`
           : `<div class="row">${layoutPreview(layout)}<div><div class="jua" style="font-size:18px">${LAYOUTS[layout].icon} ${LAYOUTS[layout].name}</div><div class="muted" style="font-size:12px">${LAYOUTS[layout].desc}</div></div><span class="sp"></span><button type="button" class="sm ghost" data-act="back-layout">모양 바꾸기</button></div>`}
     </div>
-    <label class="f">보드 제목</label><input name="title" value="${esc(b?.title || '')}" placeholder="${isCol ? '토끼와 거북이, 어떻게 생각해?' : '오늘 배운 점 한 줄'}" required>
-    <label class="f">설명 (학생에게 보이는 안내)</label><input name="desc" value="${esc(b?.description || '')}" placeholder="${isCol ? '알맞은 칸에 내 생각을 붙여 보세요' : '한 장에 하나씩 자유롭게 써 보세요'}">
+    <label class="f">보드 제목</label><input name="title" value="${esc(b?.title || '')}" placeholder="${isCol ? '토끼와 거북이, 어떻게 생각해?' : layout === 'canvas' ? '우리 마을 소개하기' : '오늘 배운 점 한 줄'}" required>
+    <label class="f">설명 (학생에게 보이는 안내)</label><input name="desc" value="${esc(b?.description || '')}" placeholder="${isCol ? '알맞은 칸에 내 생각을 붙여 보세요' : layout === 'canvas' ? '모둠 친구들과 사진·포스트잇으로 발표자료를 만들어요' : '한 장에 하나씩 자유롭게 써 보세요'}">
     ${b ? '' : `<label class="f">폴더</label><select name="folder" data-newfolder>${folderOptions(S.view.t === 'folder' ? S.view.id : null)}<option value="__new">＋ 새 폴더 만들기…${S.view.t === 'folder' ? ` (‘${esc(folderById(S.view.id)?.name || '')}’ 안에)` : ''}</option></select>
       <input name="newfolder" placeholder="새 폴더 이름 (예: 국어 3단원)" style="margin-top:8px" hidden>`}
 
@@ -790,14 +847,21 @@ function boardFormHtml(b, sections, layout){
       <div id="secList">${(sections && sections.length ? sections : [{ title:'좋은 점' }, { title:'아쉬운 점' }, { title:'궁금한 점' }]).map(s => secRow(s)).join('')}</div>
       <button type="button" class="sm" data-act="sec-add">＋ 칼럼 추가</button>
     </div>
-    <div class="only-free muted" style="font-size:13px;margin-top:12px" ${isCol ? 'hidden' : ''}>📌 칸 나누기 없이 모든 카드가 한 판에 모여요.</div>
+    <div class="only-free muted" style="font-size:13px;margin-top:12px" ${isCol || layout === 'canvas' ? 'hidden' : ''}>📌 칸 나누기 없이 모든 카드가 한 판에 모여요.</div>
+    <div class="only-canvas" ${layout === 'canvas' ? '' : 'hidden'}>
+      ${b ? '<div class="muted" style="font-size:13px;margin-top:12px">🎨 모둠과 모둠원은 보드 관리 화면에서 정해요.</div>'
+          : `<label class="f">모둠 수</label><input name="groups" type="number" min="1" max="12" value="6" style="width:120px">
+             <div class="muted" style="font-size:12px;margin-top:6px">만든 뒤 보드 관리 화면에서 모둠원을 정하거나 자동으로 나눌 수 있어요.</div>`}
+    </div>
 
     <label class="f">배경</label>
     <div class="swatches">${BGS.map(x => `<div class="sw ${x === bg ? 'on' : ''}" style="background:${x}" data-act="pick-bg" data-id="${esc(x)}"></div>`).join('')}</div>
     <input type="hidden" name="bg" value="${esc(bg)}">
+    <div class="not-canvas" ${layout === 'canvas' ? 'hidden' : ''}>
     <label class="f">규칙</label>
     <label class="chk"><input type="checkbox" name="appr" ${b?.require_approval ? 'checked' : ''}> 선생님이 승인한 글만 공개</label>
     <label class="chk"><input type="checkbox" name="names" ${b ? (b.show_names ? 'checked' : '') : 'checked'}> 친구들에게 작성자 이름 보이기</label>
+    </div>
     <label class="chk only-col" ${isCol ? '' : 'hidden'}><input type="checkbox" name="move" ${b ? (b.allow_student_move ? 'checked' : '') : 'checked'}> 학생이 자기 글을 다른 칼럼으로 옮기기</label>`;
 }
 function secRow(s){
@@ -842,6 +906,10 @@ function newBoardStep2(layout){
         }
         const [b] = await q(sb.from('boards').insert({ ...readBoardForm(f), class_id: S.classId, folder_id: folderId }).select());
         await q(sb.from('sections').insert(secs.map(s => ({ board_id: b.id, title: s.title, sort_order: s.sort_order }))));
+        if (b.layout === 'canvas'){
+          const n = Math.max(1, Math.min(12, parseInt(f.groups.value, 10) || 6));
+          await q(sb.from('canvas_groups').insert(Array.from({ length: n }, (_, k) => ({ board_id: b.id, name: `${k + 1}모둠`, sort_order: k + 1 }))));
+        }
         closeModal(); await loadClassData(); toast('보드를 만들었어요'); openBoard(b.id);
       } catch(err){ f.querySelector('.main').disabled = false; }
     };
@@ -1019,7 +1087,9 @@ const ACT = {
     m.querySelector('[name=layout]').value = k;
     m.querySelectorAll('[data-act=switch-layout]').forEach(x => x.classList.toggle('on', x.dataset.id === k));
     m.querySelectorAll('.only-col').forEach(x => x.hidden = k !== 'columns');
-    m.querySelectorAll('.only-free').forEach(x => x.hidden = k === 'columns');
+    m.querySelectorAll('.only-free').forEach(x => x.hidden = k === 'columns' || k === 'canvas');
+    m.querySelectorAll('.only-canvas').forEach(x => x.hidden = k !== 'canvas');
+    m.querySelectorAll('.not-canvas').forEach(x => x.hidden = k === 'canvas');
   },
   'open-board': id => { closeModal(); openBoard(id); },
   'board-menu': id => boardMenu(id),
@@ -1081,6 +1151,53 @@ const ACT = {
     if (error) return toast(/pinned/.test(error.message) ? '먼저 Supabase에서 update_02 SQL을 실행해 주세요' : nice(error.message), true);
     toast(p.pinned ? '고정을 풀었어요' : '📌 맨 위에 고정했어요'); ping(); await refresh();
   },
+  'cg-add': async () => {
+    const d = S.detail, name = await promptBox('새 모둠 이름', `${d.groups.length + 1}모둠`);
+    if (!name) return;
+    await q(sb.from('canvas_groups').insert({ board_id: S.view.id, name, sort_order: d.groups.length + 1 }));
+    await refresh();
+  },
+  'cg-rename': async id => {
+    const g = S.detail.groups.find(x => x.id === id), name = await promptBox('모둠 이름 바꾸기', g.name);
+    if (!name) return;
+    await q(sb.from('canvas_groups').update({ name }).eq('id', id)); await refresh();
+  },
+  'cg-del': async id => {
+    const g = S.detail.groups.find(x => x.id === id);
+    if (!await confirmBox(`‘${g.name}’을(를) 지울까요? 이 모둠 캔버스에 만든 것도 모두 지워져요.`, '모둠 삭제', true)) return;
+    await q(sb.from('canvas_groups').delete().eq('id', id)); await refresh();
+  },
+  'cg-members': id => {
+    const groups = S.detail.groups, g = groups.find(x => x.id === id);
+    const where = sid => groups.find(x => (x.members || []).includes(sid));
+    openModal(`<h3>👥 ${esc(g.name)} 모둠원</h3><p class="muted" style="font-size:13px">체크한 학생이 이 모둠이 돼요. 다른 모둠 학생을 체크하면 이 모둠으로 옮겨져요.</p>
+      <form><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px;max-height:50vh;overflow:auto;margin-top:8px">
+      ${S.students.filter(s => s.active).map(s => { const w = where(s.id); return `<label class="chk"><input type="checkbox" name="m" value="${s.id}" ${w?.id === id ? 'checked' : ''}> ${s.number} ${esc(s.name)}${w && w.id !== id ? ` <span class="muted" style="font-size:11px">(${esc(w.name)})</span>` : ''}</label>`; }).join('')}
+      </div><div class="mfoot"><button type="button" onclick="closeModal()">취소</button><button class="main">저장</button></div></form>`, m => {
+      m.querySelector('form').onsubmit = async e => {
+        e.preventDefault();
+        const picked = [...e.target.querySelectorAll('[name=m]:checked')].map(x => x.value);
+        const changes = groups.map(x => x.id === id ? { id, members: picked } : { id: x.id, members: (x.members || []).filter(sid => !picked.includes(sid)) })
+          .filter(x => JSON.stringify(x.members) !== JSON.stringify(groups.find(y => y.id === x.id).members || []));
+        await saveGroups(changes); closeModal(); toast('모둠원을 정했어요'); await refresh();
+      };
+    });
+  },
+  'cg-auto': () => {
+    const groups = S.detail.groups;
+    if (!groups.length) return toast('먼저 모둠을 만들어 주세요', true);
+    openModal(`<h3>🎲 자동으로 나누기</h3><p class="muted">학생 ${S.students.filter(s => s.active).length}명을 ${groups.length}개 모둠으로 고르게 나눠요. 지금 정해진 모둠원은 바뀌어요.</p>
+      <div class="menu" style="margin-top:12px"><button data-how="order">🔢 번호 순서대로 (1~5번 1모둠…)</button><button data-how="random">🎲 무작위로 섞어서</button></div>
+      <div class="mfoot"><button onclick="closeModal()">취소</button></div>`, m => {
+      m.querySelectorAll('[data-how]').forEach(b => b.onclick = async () => {
+        let list = S.students.filter(s => s.active).map(s => s.id);
+        if (b.dataset.how === 'random') list = list.map(v => [Math.random(), v]).sort((a, c) => a[0] - c[0]).map(x => x[1]);
+        const n = groups.length, size = Math.ceil(list.length / n);
+        const changes = groups.map((g, k) => ({ id: g.id, members: b.dataset.how === 'order' ? list.slice(k * size, (k + 1) * size) : list.filter((_, j) => j % n === k) }));
+        await saveGroups(changes); closeModal(); toast('모둠을 나눴어요'); await refresh();
+      });
+    });
+  },
   'approve-all': async () => {
     await q(sb.from('posts').update({ status:'approved' }).eq('board_id', S.view.id).eq('status', 'pending'));
     toast('모두 승인했어요'); ping(); await refresh();
@@ -1141,6 +1258,59 @@ const ACT = {
         closeModal(); toast(`${list.length}명을 추가했어요`); await refresh();
       };
     });
+  },
+  'pin-make': () => {
+    const none = S.students.filter(s => s.active && !s.pin).length;
+    openModal(`<h3>🔢 PIN 한 번에 만들기</h3>
+      <p class="muted" style="line-height:1.6">학생마다 숫자 4자리 비밀번호를 무작위로 만들어요. 학생이 이름을 누르면 이 번호를 입력해야 들어갈 수 있어요.</p>
+      <div class="menu" style="margin-top:12px">
+        <button data-pin="missing">PIN 없는 학생만 만들기 (${none}명)</button>
+        <button data-pin="all" class="danger">모든 학생 새로 만들기 (기존 PIN은 바뀌어요)</button>
+        <button data-pin="clear" class="danger">모든 PIN 지우기 (이름만 눌러 들어가기)</button>
+      </div><div class="mfoot"><button onclick="closeModal()">닫기</button></div>`, m => {
+      m.querySelectorAll('[data-pin]').forEach(b => b.onclick = async () => {
+        const mode = b.dataset.pin;
+        const targets = S.students.filter(s => s.active && (mode !== 'missing' || !s.pin));
+        if (!targets.length){ closeModal(); return toast('바꿀 학생이 없어요'); }
+        b.disabled = true; b.textContent = '만드는 중…';
+        const used = new Set();
+        for (const s of targets){
+          let pin = null;
+          if (mode !== 'clear'){
+            do { pin = String(1000 + crypto.getRandomValues(new Uint32Array(1))[0] % 9000); } while (used.has(pin) || /^(\d)\1{3}$/.test(pin));
+            used.add(pin);
+          }
+          await q(sb.from('students').update({ pin }).eq('id', s.id));
+        }
+        closeModal(); await refresh();
+        if (mode === 'clear') toast('PIN을 모두 지웠어요');
+        else { toast(`${targets.length}명의 PIN을 만들었어요`); ACT['pin-print'](); }
+      });
+    });
+  },
+  'pin-print': () => {
+    const cls = S.classes.find(c => c.id === S.classId);
+    const list = S.students.filter(s => s.active);
+    if (!list.some(s => s.pin)) return toast('먼저 PIN을 만들어 주세요', true);
+    const ANI = ['🐶','🐱','🐰','🐻','🐼','🦊','🐨','🐯','🦁','🐸','🐷','🐵','🐥','🐧','🦄','🐹','🐮','🐙','🦋','🐞','🐳','🦔','🐿️','🦉','🐢','🐬','🐝','🦕','🐲','🦒','🐌','🦀','🐠','🦩','🐣'];
+    $('#printzone').innerHTML = `<div class="pincards">${list.map(s => `<div class="pincard"><div class="a">${ANI[(s.number - 1) % ANI.length]}</div><div class="n">${s.number}번 ${esc(s.name)}</div><div class="p">${esc(s.pin || '----')}</div><div class="c">${esc(cls?.name || '')} · 우리반 보드 비밀번호 · 친구에게 보여 주지 마세요</div></div>`).join('')}</div>`;
+    openModal(`<h3>🖨 PIN 카드 인쇄</h3><p class="muted">A4 한 장에 카드 18장(3칸×6줄)이 들어가요. 점선을 따라 잘라서 나눠 주세요.</p>
+      <div style="max-height:40vh;overflow:auto;border:1.5px solid var(--line);border-radius:12px;margin-top:10px">${$('#printzone').innerHTML}</div>
+      <div class="mfoot"><button onclick="closeModal()">닫기</button><button class="main" id="dopin">🖨 인쇄하기</button></div>`, m => {
+      m.querySelector('#dopin').onclick = () => { closeModal(); document.body.classList.add('print-pin'); setTimeout(() => { window.print(); document.body.classList.remove('print-pin'); }, 60); };
+    });
+  },
+  'pin-reset': async id => {
+    const s = S.students.find(x => x.id === id);
+    if (!await confirmBox(`${s.number}번 ${s.name}의 PIN을 초기화할까요? 모든 패드에서 로그아웃되고, 다음에 들어올 때 새 비밀번호를 직접 정해요.`, '초기화')) return;
+    await q(sb.from('students').update({ pin: null }).eq('id', id));
+    toast('초기화했어요. 학생이 다음에 들어올 때 새로 정해요'); await refresh();
+  },
+  'delete-student': async id => {
+    const s = S.students.find(x => x.id === id);
+    if (!await confirmBox(`${s.number}번 ${s.name}을(를) 명단에서 삭제할까요? 이 학생이 쓴 글은 남지만 이름이 지워지고(‘알 수 없음’), 좋아요는 사라져요. 전학이라면 ‘전출 처리’를 추천해요.`, '삭제', true)) return;
+    await q(sb.from('students').delete().eq('id', id));
+    toast('삭제했어요'); await refresh();
   },
   'toggle-student': async id => {
     const s = S.students.find(x => x.id === id);

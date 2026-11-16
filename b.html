@@ -119,6 +119,7 @@ textarea{resize:none;min-height:140px;line-height:1.6}
 .cmt .cw{font-size:13px;color:var(--ink2)}
 .pin{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
 .pin button{font-family:'Jua';font-size:26px;min-height:64px;background:#F4EDE2}
+.pin button.main{background:var(--main);color:#fff}
 .pindots{display:flex;gap:12px;justify-content:center;margin:8px 0}
 .pindots i{width:18px;height:18px;border-radius:50%;background:#EEE6DA}
 .pindots i.on{background:var(--main)}
@@ -229,7 +230,50 @@ async function start(){
     if (stu){ S.me = { id: stu.id, number: stu.number, name: stu.name }; S.token = saved.token; store.set(KEY, { me: S.me, token: S.token }); break; }
   }
   if (!S.me) return showPicker();
+  await afterLogin();
+}
+
+// 들어온 다음: PIN이 없으면 먼저 정하기 → 모둠 캔버스면 캔버스로, 아니면 보드로
+async function afterLogin(){
+  const stu = S.students.find(s => s.id === S.me.id);
+  if (stu && !stu.has_pin){
+    const ok = await setPinSheet(stu);
+    if (ok) stu.has_pin = true;
+  }
+  if (S.board.layout === 'canvas') return location.replace('c.html?b=' + encodeURIComponent(CODE));
   await enterBoard();
+}
+function setPinSheet(stu){
+  return new Promise(done => {
+    let first = null, pin = '';
+    const draw = (msg) => openSheet(`<div style="text-align:center"><div class="bigemoji" style="font-size:56px">${ani(stu.number)}</div>
+      <h3>${first ? '한 번 더 눌러 줘' : '내 비밀번호 정하기'}</h3>
+      <div class="muted">${msg || (first ? '방금 정한 숫자 4개를 다시 눌러요' : '숫자 4개로 나만 아는 비밀번호를 정해요.<br>다음부터 들어올 때 필요해요!')}</div>
+      <div class="pindots" id="dots"></div>
+      <div class="pin">${[1,2,3,4,5,6,7,8,9].map(n => `<button data-n="${n}">${n}</button>`).join('')}<button data-n="back">⌫</button><button data-n="0">0</button><button data-n="ok" class="main">확인</button></div></div>`, sh => {
+      const dots = () => sh.querySelector('#dots').innerHTML = [0,1,2,3].map(i => `<i class="${i < pin.length ? 'on' : ''}"></i>`).join('');
+      dots();
+      sh.querySelector('.sheet-bg')?.removeEventListener?.('click', () => {});
+      sh.querySelectorAll('[data-n]').forEach(b => b.onclick = async () => {
+        const n = b.dataset.n;
+        if (n === 'back'){ pin = pin.slice(0, -1); return dots(); }
+        if (n !== 'ok'){ if (pin.length < 4){ pin += n; dots(); } if (pin.length < 4) return; }
+        if (pin.length < 4) return;
+        if (/^(\d)\1{3}$/.test(pin) || pin === '1234'){ pin = ''; return draw('너무 쉬운 번호예요. 다른 숫자로 정해 볼까?'); }
+        if (!first){ first = pin; pin = ''; return draw(); }
+        if (pin !== first){ first = null; pin = ''; return draw('두 번 누른 숫자가 달라요. 처음부터 다시 정해요'); }
+        try {
+          const { error } = await sb.rpc('student_set_pin', { p_code: CODE, p_token: S.token, p_pin: pin });
+          if (error && !/HAS_PIN/.test(error.message)){
+            if (/BAD_PIN/.test(error.message)){ first = null; pin = ''; return draw('숫자 4자리로 정해 줘'); }
+            closeSheet(); return done(false);   // 아직 업데이트 전이면 그냥 넘어가기
+          }
+          closeSheet(); toast('🔐 비밀번호를 정했어요! 꼭 기억해 줘'); done(true);
+        } catch(e){ closeSheet(); done(false); }
+      });
+    });
+    draw();
+  });
 }
 
 function showClosed(title='지금은 닫힌 보드예요', sub='선생님이 다시 열어 주시면 들어올 수 있어요.'){
@@ -255,7 +299,7 @@ async function join(stu, pin=null){
     S.me = { id: stu.id, number: stu.number, name: stu.name }; S.token = token;
     store.set(KEY, { me: S.me, token }); store.set(KEY_LAST, { me: S.me, token });
     closeSheet(); toast(`${ani(stu.number)} 반가워, ${stu.name}!`);
-    await enterBoard();
+    await afterLogin();
   } catch(e){
     if (errCode(e) === 'WRONG_PIN') pinPad(stu, true);
   }
@@ -372,7 +416,7 @@ function openSheet(html, onMount){
   const root = $('#sheet');
   root.innerHTML = `<div class="sheet-bg"><div class="sheet">${html}</div></div>`;
   const bg = root.firstElementChild;
-  bg.addEventListener('click', e => { if (e.target === bg) closeSheet(); });
+  bg.addEventListener('click', e => { if (e.target === bg && !bg.querySelector('#dots')) closeSheet(); });
   bg.querySelectorAll('[data-close]').forEach(b => b.onclick = closeSheet);
   onMount && onMount(bg.firstElementChild);
 }
