@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-content">
 <meta name="color-scheme" content="light only">
 <meta name="theme-color" content="#FFF9F0">
-<title>모둠 캔버스 · 우리반 보드</title>
+<title>캔버스 · 우리반 보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap">
 <style>
@@ -67,6 +67,8 @@ button.soft{background:#F4EDE2}
 /* 선택한 것 위 작은 막대 */
 .ctx{position:fixed;z-index:31;display:flex;gap:4px;padding:6px;background:#fff;border-radius:18px;box-shadow:0 6px 20px rgba(0,0,0,.18)}
 .ctx button{min-height:44px;min-width:44px;padding:4px 8px;font-size:20px;background:transparent}
+.ctx .lbtn{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:54px;padding:4px 6px;line-height:1.1}
+.ctx .lbtn small{font-size:11px;color:var(--ink2);margin-top:2px;white-space:nowrap}
 .ctx .dot{width:30px;height:30px;min-width:30px;min-height:30px;border-radius:50%;border:3px solid #eee;padding:0;margin:7px 2px}
 
 /* 팝업 */
@@ -181,12 +183,20 @@ async function start(){
   let data;
   try { data = await call('canvas_board'); } catch(e){ return; }
   S.board = data.board; S.groups = data.groups; S.teacher = data.is_teacher;
+  S.personal = data.board.canvas_mode === 'individual';
   if (!S.teacher && !S.token) return location.replace('b.html?b=' + encodeURIComponent(CODE));
-  document.title = S.board.title + ' · 모둠 캔버스';
+  document.title = S.board.title + ' · 캔버스';
   const want = P.get('g');
   const mine = S.groups.find(x => x.mine);
   // 선생님: 링크로 연 모둠 / 학생: 자기 모둠 (없으면 고르기)
   if (S.teacher && S.groups.some(x => x.id === want)) return openGroup(want, P.get('present') === '1');
+  // 개인용: 학생은 바로 내 캔버스
+  if (S.personal && !S.teacher){
+    try { const gid = await call('canvas_personal'); const d = await call('canvas_board'); S.groups = d.groups; return openGroup(gid, P.get('present') === '1'); }
+    catch(e){ return; }
+  }
+  if (S.personal && S.teacher && !S.groups.length) return showMsg('🙋', '아직 캔버스를 시작한 학생이 없어요', '교사 화면에서 ‘모든 학생 캔버스 미리 만들기’를 누르면 바로 볼 수 있어요.');
+  if (S.personal && S.teacher) return groupPicker('누구 캔버스를 볼까요?', '', false);
   // 학생은 들어올 때마다 모둠을 고름 (모둠이 자주 바뀌니까)
   if (!S.groups.length) return showMsg('🧩', '아직 모둠이 없어요', '선생님이 모둠을 만들면 여기서 함께 그릴 수 있어요.', backBtn());
   if (S.teacher) return groupPicker('어느 모둠을 볼까요?', '', false);
@@ -234,13 +244,13 @@ function renderShell(){
   $('#app').innerHTML = `
     <header class="top">
       <h1>${esc(S.board.title)}</h1>
-      <span class="gname">${esc(S.group.name)}</span>
+      <span class="gname">${S.personal && !S.teacher ? '🙋 내 캔버스' : esc(S.group.name)}</span>
       <div class="online" id="online"></div>
       <span class="sp"></span>
       ${!S.canEdit ? '<span class="ro">👀 구경 중</span>' : ''}
-      ${S.teacher && others.length ? `<select id="gsel" aria-label="다른 모둠 보기"><option value="">다른 모둠 보기</option>${S.groups.map(g => `<option value="${g.id}" ${g.id === S.group.id ? 'disabled' : ''}>${esc(g.name)}${g.mine ? ' (우리 모둠)' : ''}</option>`).join('')}</select>` : ''}
+      ${S.teacher && others.length ? `<select id="gsel" aria-label="다른 모둠 보기"><option value="">${S.personal ? '다른 학생 보기' : '다른 모둠 보기'}</option>${S.groups.map(g => `<option value="${g.id}" ${g.id === S.group.id ? 'disabled' : ''}>${esc(g.name)}${g.mine ? ' (우리 모둠)' : ''}</option>`).join('')}</select>` : ''}
       <button class="soft" data-a="present" title="발표하기">▶ 발표</button>
-      ${!S.teacher && S.board.link_status === 'open' ? '<button class="soft" data-a="regroup" title="모둠 다시 고르기">🔁 모둠 바꾸기</button>' : ''}
+      ${!S.teacher && !S.personal && S.board.link_status === 'open' ? '<button class="soft" data-a="regroup" title="모둠 다시 고르기">🔁 모둠 바꾸기</button>' : ''}
       ${S.teacher ? '<button class="soft" data-a="back" title="교사 화면">✕</button>' : `<button class="soft" data-a="logout" title="다른 친구가 쓸 때">🚪 나가기</button>`}
     </header>
     <div class="pages" id="pages"></div>
@@ -260,7 +270,7 @@ function renderPages(){
   const el = $('#pages'); if (!el) return;
   el.innerHTML = S.pages.map((p, i) => `<button class="pg ${p.id === S.page.id ? 'on' : ''}" data-pg="${p.id}">${i + 1}</button>`).join('')
     + (S.canEdit ? `<button class="pg pgadd" data-a="page-add">＋ 쪽</button><button class="pg pgadd" data-a="page-menu">⋯</button>` : '')
-    + (S.teacher ? `<button class="pg pgadd" data-a="copy-all" title="이 쪽을 모든 모둠에 나눠 주기">📤 모든 모둠에 복사</button>` : '');
+    + (S.teacher ? `<button class="pg pgadd" data-a="copy-all" title="이 쪽을 모두에게 나눠 주기">📤 ${S.personal ? '모든 학생에게' : '모든 모둠에'} 복사</button>` : '');
 }
 
 // 화면 크기에 맞게 페이지 줄이기
@@ -401,10 +411,10 @@ function placeCtx(){
   if (canTouch(i)){
     if (i.kind === 'note') html += Object.entries(NOTE_COLORS).map(([k, v]) => `<button class="dot" style="background:${v};${i.data.color === k ? 'border-color:#3A3550' : ''}" data-c="note:${k}"></button>`).join('');
     if (i.kind === 'text' || i.kind === 'shape') html += INK.slice(0, 6).map(v => `<button class="dot" style="background:${v}" data-c="${i.kind === 'text' ? 'text' : 'fill'}:${v}"></button>`).join('');
-    if (i.kind === 'note' || i.kind === 'text') html += `<button data-c="fs:-" title="글자 작게">A−</button><button data-c="fs:+" title="글자 크게">A＋</button><button data-c="edit" title="글 고치기">✏️</button>`;
-    html += `<button data-c="front" title="맨 앞으로">⬆️</button><button data-c="dup" title="복사">📄</button><button data-c="del" title="지우기">🗑️</button>`;
+    if (i.kind === 'note' || i.kind === 'text') html += lb('fs:-', 'A−', '작게') + lb('fs:+', 'A＋', '크게') + lb('edit', '✏️', '글 고치기');
+    html += lb('front', '⬆️', '맨 위로') + lb('dup', '📄', '복사') + lb('del', '🗑️', '지우기');
   }
-  if (S.teacher) html += `<button data-c="lock" title="${i.locked ? '잠금 풀기' : '잠그기'}">${i.locked ? '🔓' : '🔒'}</button>`;
+  if (S.teacher) html += lb('lock', i.locked ? '🔓' : '🔒', i.locked ? '잠금 풀기' : '잠그기');
   if (!html) return;
   ctx.innerHTML = html;
   document.body.appendChild(ctx);
@@ -427,6 +437,7 @@ function ctxAct(c, i){
   placeCtx();
 }
 const maxZ = () => Math.max(0, ...itemsOnPage().map(i => i.z));
+const lb = (c, ic, t) => `<button class="lbtn" data-c="${c}"><span>${ic}</span><small>${t}</small></button>`;
 
 // ---------- 글 고치기 ----------
 function startEdit(id){
@@ -575,7 +586,8 @@ function endPointer(e){
   }
   if (S.erasing){ S.erasing = false; return; }
   const d = S.drag; S.drag = null;
-  if (d && d.moved){ const it = S.items.get(d.id); if (it){ commit(it, true); renderItem(it.id); } }
+  if (!d) return;                       // 막대 버튼 등 다른 곳을 누른 경우엔 그대로 두기
+  if (d.moved){ const it = S.items.get(d.id); if (it){ commit(it, true); renderItem(it.id); } }
   placeCtx();
 }
 function eraseAt(e){
@@ -712,12 +724,14 @@ document.addEventListener('click', async e => {
       location.replace('b.html?b=' + encodeURIComponent(CODE));
     });
     if (a === 'copy-all'){
-      sheet(`<h3>📤 이 쪽을 모든 모둠에 나눠 줄까요?</h3><p class="muted" style="line-height:1.6">다른 모둠 캔버스 맨 뒤에 이 쪽이 복사돼요. 복사된 것은 모두 🔒 잠겨서 학생이 움직일 수 없어요. 활동지나 발표 틀을 나눠 줄 때 쓰세요.</p>
+      sheet(`<h3>📤 이 쪽을 ${S.personal ? '모든 학생에게' : '모든 모둠에'} 나눠 줄까요?</h3><p class="muted" style="line-height:1.6">${S.personal ? '다른 학생' : '다른 모둠'} 캔버스 맨 뒤에 이 쪽이 복사돼요. 복사된 것은 모두 🔒 잠겨서 학생이 움직일 수 없어요. 활동지나 발표 틀을 나눠 줄 때 쓰세요.</p>
         <div class="sfoot"><button class="soft" data-close>취소</button><button class="main" id="y">나눠 주기</button></div>`, sh => {
         sh.querySelector('#y').onclick = async () => {
+          if (S.personal) await sb.rpc('canvas_ensure_all', { p_code: CODE });   // 아직 안 들어온 학생 것도 미리 만들기
           const { data, error } = await sb.rpc('canvas_page_copy_all', { p_code: CODE, p_group: S.group.id, p_page: S.page.id });
           closeLayer(); if (error) return toast(errMsg(error), true);
-          toast(`${data}개 모둠에 나눠 줬어요`);
+          toast(S.personal ? `${data}명에게 나눠 줬어요` : `${data}개 모둠에 나눠 줬어요`);
+          const d2 = await call('canvas_board'); S.groups = d2.groups;
           for (const g of S.groups) if (g.id !== S.group.id) sb.channel('canvas:' + g.id).send({ type:'broadcast', event:'op', payload:{ type:'pages' } });
         };
       });

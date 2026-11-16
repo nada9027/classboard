@@ -116,6 +116,8 @@ body.is-dragging .side::before{content:'여기 폴더 위에 놓으세요 👇';
 .seg{display:inline-flex;background:#F4EDE2;border-radius:12px;padding:3px}
 .seg button{border:0;background:transparent;padding:6px 12px;border-radius:9px;font-size:13px}
 .seg button.on{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.segbtn{display:block;text-align:center;padding:8px 12px;border-radius:9px;cursor:pointer}
+.seg input:checked + .segbtn{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08);color:#4B57C8}
 .info{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
 .infobox{background:var(--paper);border:1.5px solid var(--line);border-radius:14px;padding:10px 14px;font-size:13px}
 .chip{display:inline-block;background:#F4EDE2;border-radius:999px;padding:2px 9px;margin:2px;font-size:12px}
@@ -221,7 +223,7 @@ const BGS = [
   '#FFF4BF', '#D3F5E6', '#FFE0D1'
 ];
 const LINK_LABEL = {open:'열림', readonly:'보기만', closed:'닫힘'};
-const LAYOUT_LABEL = {columns:'칼럼형', wall:'담벼락형', grid:'그리드형', canvas:'모둠 캔버스'};
+const LAYOUT_LABEL = {columns:'칼럼형', wall:'담벼락형', grid:'그리드형', canvas:'캔버스'};
 
 const S = {
   user:null, classes:[], classId:null,
@@ -550,7 +552,7 @@ function boardCard(b){
   return `<div class="bcard" data-act="open-board" data-id="${b.id}" ${b.deleted_at ? '' : `draggable="true" data-drag="board:${b.id}"`}>
     <div class="bthumb" style="background:${esc(b.background || BGS[0])}">
       <span class="badge ${b.link_status}">${LINK_LABEL[b.link_status]}</span>
-      <span class="badge" style="position:absolute;left:10px;top:10px">${LAYOUTS[b.layout]?.icon || ""} ${LAYOUTS[b.layout]?.name || ""}</span><div class="mini"><i></i><i></i><i></i></div>
+      <span class="badge" style="position:absolute;left:10px;top:10px">${LAYOUTS[b.layout]?.icon || ""} ${LAYOUTS[b.layout]?.name || ""}${b.layout === 'canvas' ? (b.canvas_mode === 'individual' ? ' · 개인' : ' · 모둠') : ''}</span><div class="mini"><i></i><i></i><i></i></div>
     </div>
     <div class="bbody">
       <div class="btitle">${esc(b.title)}</div>
@@ -753,7 +755,24 @@ function renderDetail(){
 // ---------- 모둠 캔버스 관리 ----------
 const ANI = ['🐶','🐱','🐰','🐻','🐼','🦊','🐨','🐯','🦁','🐸','🐷','🐵','🐥','🐧','🦄','🐹','🐮','🐙','🦋','🐞','🐳','🦔','🐿️','🦉','🐢','🐬','🐝','🦕','🐲','🦒','🐌','🦀','🐠','🦩','🐣'];
 const canvasUrl = (b, g, present) => new URL(`c.html?b=${b.share_code}&g=${g}${present ? '&present=1' : ''}`, location.href).href;
+function renderCanvasPersonal(b, d){
+  const act = S.students.filter(s => s.active);
+  const byStu = sid => d.groups.find(g => (g.members || []).length === 1 && g.members[0] === sid);
+  const started = act.filter(s => byStu(s.id)).length;
+  return `
+    <div class="info">
+      <div class="infobox">🙋 개인 캔버스 · 시작한 학생 <b>${started}</b> / ${act.length}명</div>
+      <div class="row"><button class="sm" data-act="cp-ensure">📋 모든 학생 캔버스 미리 만들기</button></div>
+    </div>
+    <table class="t"><tr><th style="width:70px">번호</th><th>이름</th><th>캔버스</th><th style="width:220px"></th></tr>
+    ${act.map(s => { const g = byStu(s.id); return `<tr><td>${s.number}</td><td>${ANI[(s.number - 1) % ANI.length]} ${esc(s.name)}</td>
+      <td>${g ? '<span class="badge open">만들어짐</span>' : '<span class="badge closed">아직 안 들어옴</span>'}</td>
+      <td>${g ? `<div class="row"><a href="${esc(canvasUrl(b, g.id))}" target="_blank" rel="noopener"><button class="sm">↗ 열기</button></a><a href="${esc(canvasUrl(b, g.id, true))}" target="_blank" rel="noopener"><button class="sm">▶ 발표</button></a></div>` : ''}</td></tr>`; }).join('')}
+    </table>
+    <p class="muted" style="font-size:13px;line-height:1.7;margin-top:14px">💡 학생은 보드 QR로 들어와 이름과 비밀번호를 누르면 자기 캔버스로 바로 가요. 같은 틀(제목, 활동지)을 모두에게 주려면 ‘모든 학생 캔버스 미리 만들기’를 누른 뒤, 아무 학생 캔버스에서 틀을 만들고 ‘📤 모든 학생에게 복사’를 누르세요.</p>`;
+}
 function renderCanvasGroups(b, d){
+  if (!d.err && b.canvas_mode === 'individual') return renderCanvasPersonal(b, d);
   if (d.err) return `<div class="empty"><div class="big">🧩</div>모둠 캔버스를 쓰려면 Supabase에서 <b>update_03_canvas.sql</b>을 먼저 실행해 주세요.</div>`;
   const act = S.students.filter(s => s.active);
   const assigned = new Set(d.groups.flatMap(g => g.members || []));
@@ -815,7 +834,7 @@ const LAYOUTS = {
   columns: { name:'칼럼형', icon:'🗂️', desc:'주제별로 칸을 나눠 모아요', ex:'예) 좋은 점 / 아쉬운 점 / 궁금한 점' },
   grid:    { name:'그리드형', icon:'🔲', desc:'카드가 바둑판처럼 같은 크기로 줄 서요', ex:'예) 오늘 배운 점, 작품 전시, 자기소개' },
   wall:    { name:'담벼락형', icon:'🧱', desc:'글 길이대로 벽돌처럼 차곡차곡 쌓여요', ex:'예) 자유롭게 소감 나누기, 칭찬 릴레이' },
-  canvas:  { name:'모둠 캔버스', icon:'🎨', desc:'모둠별로 사진·포스트잇·그림으로 발표자료를 함께 만들어요', ex:'예) 모둠 조사 발표, 생각 지도, 탐구 보고서' }
+  canvas:  { name:'캔버스', icon:'🎨', desc:'사진·포스트잇·그림으로 발표자료를 만들어요 (모둠용·개인용)', ex:'예) 모둠 조사 발표, 나의 꿈 발표, 생각 지도' }
 };
 function layoutPreview(k){
   if (k === 'columns') return `<div class="pv pv-col">${[3,2,3].map(n => `<div>${'<i></i>'.repeat(n)}</div>`).join('')}</div>`;
@@ -849,9 +868,17 @@ function boardFormHtml(b, sections, layout){
     </div>
     <div class="only-free muted" style="font-size:13px;margin-top:12px" ${isCol || layout === 'canvas' ? 'hidden' : ''}>📌 칸 나누기 없이 모든 카드가 한 판에 모여요.</div>
     <div class="only-canvas" ${layout === 'canvas' ? '' : 'hidden'}>
+      <label class="f">캔버스 종류</label>
+      <div class="seg" style="width:100%">
+        <label style="flex:1"><input type="radio" name="cmode" value="group" ${(b?.canvas_mode || 'group') === 'group' ? 'checked' : ''} hidden data-cmode><span class="segbtn">👥 모둠용</span></label>
+        <label style="flex:1"><input type="radio" name="cmode" value="individual" ${b?.canvas_mode === 'individual' ? 'checked' : ''} hidden data-cmode><span class="segbtn">🙋 개인용</span></label>
+      </div>
+      <div class="muted cm-help" style="font-size:12px;margin-top:6px">${b?.canvas_mode === 'individual' ? '학생마다 자기 캔버스가 하나씩 생겨요. 자기 것만 보고 고쳐요.' : '모둠원 4~5명이 한 캔버스를 함께 만들어요.'}</div>
+      <div class="cm-group" ${b?.canvas_mode === 'individual' ? 'hidden' : ''}>
       ${b ? '<div class="muted" style="font-size:13px;margin-top:12px">🎨 모둠과 모둠원은 보드 관리 화면에서 정해요.</div>'
           : `<label class="f">모둠 수</label><input name="groups" type="number" min="1" max="12" value="6" style="width:120px">
              <div class="muted" style="font-size:12px;margin-top:6px">학생이 들어올 때마다 자기 모둠을 골라요. 학생은 자기 모둠 캔버스만 볼 수 있어요.</div>`}
+      </div>
     </div>
 
     <label class="f">배경</label>
@@ -873,7 +900,8 @@ function readSections(m){
   return [...m.querySelectorAll('#secList .secrow')].map((r, i) => ({ id: r.dataset.sid || null, title: r.querySelector('input').value.trim(), sort_order: i + 1 })).filter(s => s.title);
 }
 function readBoardForm(f){
-  return {
+  const extra = f.layout.value === 'canvas' && f.cmode ? { canvas_mode: f.cmode.value } : {};
+  return { ...extra,
     title: f.title.value.trim(), description: f.desc.value.trim() || null, layout: f.layout.value,
     background: f.bg.value, require_approval: f.appr.checked, show_names: f.names.checked, allow_student_move: f.move.checked
   };
@@ -906,7 +934,7 @@ function newBoardStep2(layout){
         }
         const [b] = await q(sb.from('boards').insert({ ...readBoardForm(f), class_id: S.classId, folder_id: folderId }).select());
         await q(sb.from('sections').insert(secs.map(s => ({ board_id: b.id, title: s.title, sort_order: s.sort_order }))));
-        if (b.layout === 'canvas'){
+        if (b.layout === 'canvas' && (b.canvas_mode || 'group') === 'group'){
           const n = Math.max(1, Math.min(12, parseInt(f.groups.value, 10) || 6));
           await q(sb.from('canvas_groups').insert(Array.from({ length: n }, (_, k) => ({ board_id: b.id, name: `${k + 1}모둠`, sort_order: k + 1 }))));
         }
@@ -1151,6 +1179,12 @@ const ACT = {
     if (error) return toast(/pinned/.test(error.message) ? '먼저 Supabase에서 update_02 SQL을 실행해 주세요' : nice(error.message), true);
     toast(p.pinned ? '고정을 풀었어요' : '📌 맨 위에 고정했어요'); ping(); await refresh();
   },
+  'cp-ensure': async () => {
+    const b = boardById(S.view.id);
+    const { data, error } = await sb.rpc('canvas_ensure_all', { p_code: b.share_code });
+    if (error) return toast(/canvas_ensure_all/.test(error.message) ? '먼저 Supabase에서 update_06 SQL을 실행해 주세요' : nice(error.message), true);
+    toast(data ? `${data}명의 캔버스를 만들었어요` : '모든 학생 캔버스가 이미 있어요'); await refresh();
+  },
   'cg-add': async () => {
     const d = S.detail, name = await promptBox('새 모둠 이름', `${d.groups.length + 1}모둠`);
     if (!name) return;
@@ -1377,6 +1411,11 @@ document.addEventListener('change', e => {
   else if (t.dataset.movePost){
     q(sb.from('posts').update({ section_id: t.value }).eq('id', t.dataset.movePost)).then(() => { ping(); refresh(); }).catch(() => {});
   } else if (t.id === 'stuJump') openPortfolio(t.value);
+  else if (t.dataset.cmode !== undefined){
+    const m = t.closest('.modal'), ind = t.value === 'individual';
+    m.querySelectorAll('.cm-group').forEach(x => x.hidden = ind);
+    m.querySelector('.cm-help').textContent = ind ? '학생마다 자기 캔버스가 하나씩 생겨요. 자기 것만 보고 고쳐요.' : '모둠원 4~5명이 한 캔버스를 함께 만들어요.';
+  }
   else if (t.dataset.newfolder !== undefined){
     const inp = t.form.querySelector('[name=newfolder]');
     inp.hidden = t.value !== '__new'; if (!inp.hidden) inp.focus();
