@@ -273,6 +273,22 @@ function parseRoster(text){
   }).filter(Boolean);
 }
 
+// ---------- 유튜브 ----------
+function parseYouTube(url){
+  let u; try { u = new URL(url.trim().replace(/^(?!https?:)/, 'https://')); } catch(e){ return null; }
+  const host = u.hostname.replace(/^www\.|^m\.|^music\./, '');
+  let id = null;
+  if (host === 'youtu.be') id = u.pathname.slice(1, 12);
+  else if (/(^|\.)youtube(-nocookie)?\.com$/.test(host)){
+    id = u.searchParams.get('v') || (u.pathname.match(/\/(embed|shorts|live|v)\/([A-Za-z0-9_-]{11})/) || [])[2];
+  }
+  if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) return null;
+  const t = u.searchParams.get('t') || u.searchParams.get('start') || '';
+  const m = String(t).match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/);
+  const start = m ? (+(m[1] || 0)) * 3600 + (+(m[2] || 0)) * 60 + (+(m[3] || 0)) : 0;
+  return { yt: id, start };
+}
+
 // ---------- 사진 ----------
 async function shrinkImage(file){
   if (file.type === 'image/gif' && file.size < 4e6) return { blob: file, ext: 'gif', type: 'image/gif' };
@@ -729,7 +745,8 @@ function renderDetail(){
       <div class="who">${p.pinned ? '<span class="badge pin">📌 고정</span>' : ''}${who}${p.status === 'pending' ? '<span class="badge pending">승인 대기</span>' : ''}${p.status === 'hidden' ? '<span class="badge closed">숨김</span>' : ''}</div>
       ${p.image_url ? `<a href="${esc(p.image_url)}" target="_blank" rel="noopener"><img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="첨부 사진"></a>` : ''}
       ${p.content ? `<div class="txt">${esc(p.content)}</div>` : ''}
-      ${p.link_url ? `<a class="lnk" href="${esc(p.link_url)}" target="_blank" rel="noopener">${esc(p.link_url)}</a>` : ''}
+      ${p.link_url && parseYouTube(p.link_url) ? `<a href="${esc(p.link_url)}" target="_blank" rel="noopener" style="display:block;position:relative;margin:4px 0 6px"><img class="pimg" src="https://i.ytimg.com/vi/${parseYouTube(p.link_url).yt}/hqdefault.jpg" alt="영상" style="margin:0"><span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(255,0,0,.9);color:#fff;border-radius:10px;padding:4px 14px;font-size:20px">▶</span></a>`
+        : p.link_url ? `<a class="lnk" href="${esc(p.link_url)}" target="_blank" rel="noopener">${esc(p.link_url)}</a>` : ''}
       <div class="pf">❤️ ${p.likes?.[0]?.count || 0} 💬 ${p.comments?.[0]?.count || 0}<span class="sp"></span>
         ${p.status === 'pending' ? `<button class="sm main" data-act="post-status" data-id="${p.id}" data-s="approved">승인</button>` : ''}
         ${p.status === 'hidden' ? `<button class="sm" data-act="post-status" data-id="${p.id}" data-s="approved">보이기</button>` : `<button class="sm ghost" data-act="post-status" data-id="${p.id}" data-s="hidden">숨기기</button>`}

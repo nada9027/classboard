@@ -85,6 +85,10 @@ textarea{resize:none;min-height:140px;line-height:1.6}
 .photo-pick .pv img{display:block;height:110px;max-width:220px;object-fit:cover;border-radius:14px}
 .photo-pick .pv button{position:absolute;top:-10px;right:-10px;min-height:36px;width:36px;padding:0;border-radius:50%;background:var(--ink);color:#fff;font-size:16px}
 .zoomimg{display:block;max-width:100%;max-height:75vh;margin:0 auto;border-radius:16px}
+.post .yt{position:relative;margin:4px 0 6px;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:16/9}
+.post .yt img{width:100%;height:100%;object-fit:cover;display:block;opacity:.92}
+.post .yt iframe{width:100%;height:100%;border:0;display:block}
+.post .yt .play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:72px;height:50px;border-radius:14px;background:rgba(255,0,0,.9);color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center;min-height:0;padding:0}
 .post .pend{display:inline-block;font-size:13px;background:var(--peach);color:#B4552A;border-radius:999px;padding:3px 10px;margin-bottom:8px}
 .pfoot{display:flex;align-items:center;gap:2px;margin-top:8px}
 .pfoot .sp{flex:1}
@@ -213,6 +217,21 @@ async function uploadImage(file){
   const { error } = await sb.storage.from('post-images').upload(path, img.blob, { contentType: img.type, upsert: false });
   if (error) throw error;
   return sb.storage.from('post-images').getPublicUrl(path).data.publicUrl;
+}
+// 유튜브 주소 → 영상 번호
+function parseYouTube(url){
+  let u; try { u = new URL(url.trim().replace(/^(?!https?:)/, 'https://')); } catch(e){ return null; }
+  const host = u.hostname.replace(/^www\.|^m\.|^music\./, '');
+  let id = null;
+  if (host === 'youtu.be') id = u.pathname.slice(1, 12);
+  else if (/(^|\.)youtube(-nocookie)?\.com$/.test(host)){
+    id = u.searchParams.get('v') || (u.pathname.match(/\/(embed|shorts|live|v)\/([A-Za-z0-9_-]{11})/) || [])[2];
+  }
+  if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) return null;
+  const t = u.searchParams.get('t') || u.searchParams.get('start') || '';
+  const m = String(t).match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/);
+  const start = m ? (+(m[1] || 0)) * 3600 + (+(m[2] || 0)) * 60 + (+(m[3] || 0)) : 0;
+  return { yt: id, start };
 }
 function authorNum(a){ const m = String(a || '').match(/^(\d+)번/); return m ? parseInt(m[1], 10) : null; }
 
@@ -416,13 +435,15 @@ function postHtml(p, fresh){
   const who = p.is_teacher ? '👩‍🏫' : ani(n);
   const name = p.is_teacher ? '선생님' : (p.is_mine ? '나' : (p.author || '친구'));
   const url = safeUrl(p.link_url);
+  const yt = url ? parseYouTube(url) : null;
   const canEdit = p.is_mine && S.board.link_status === 'open';
   return `<div class="post ${fresh.has(p.id) ? 'pop' : ''} ${p.pinned ? 'pinned' : ''}" style="background:${COLORS[p.color] || '#fff'}" data-pid="${p.id}">
     ${p.pinned ? '<span class="pinb">📌 선생님이 고정한 글</span>' : ''}${p.status === 'pending' ? '<div class="pend">⏳ 선생님 확인 중</div>' : ''}
     <div class="who"><span class="ani">${who}</span><b>${esc(name)}</b></div>
     ${p.image_url ? `<img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="첨부 사진" data-act="zoom" data-id="${esc(p.image_url)}">` : ''}
     ${p.content ? `<div class="txt">${esc(p.content)}</div>` : ''}
-    ${url ? `<a class="lnk" href="${esc(url)}" target="_blank" rel="noopener">🔗 ${esc(new URL(url).hostname)}</a>` : ''}
+    ${yt ? `<div class="yt" data-yt="${yt.yt}" data-start="${yt.start}"><img src="https://i.ytimg.com/vi/${yt.yt}/hqdefault.jpg" alt="영상" loading="lazy"><button class="play" data-act="yt" data-id="${p.id}" aria-label="영상 재생">▶</button></div>`
+         : url ? `<a class="lnk" href="${esc(url)}" target="_blank" rel="noopener">🔗 ${esc(new URL(url).hostname)}</a>` : ''}
     <div class="pfoot">
       <button class="icon heart ${p.liked ? 'on' : ''}" data-act="like" data-id="${p.id}" ${p.status !== 'approved' ? 'disabled' : ''}><span class="h">${p.liked ? '❤️' : '🤍'}</span>${p.like_count || ''}</button>
       <button class="icon cbtn" data-act="comments" data-id="${p.id}" ${p.status !== 'approved' ? 'disabled' : ''}>💬 ${p.comments.length || ''}</button>
@@ -459,7 +480,7 @@ function writeSheet(sectionId, post){
     </div>
     <div class="lbl">카드 색깔</div>
     <div class="colors">${Object.entries(COLORS).map(([k, v]) => `<button class="cdot ${k === color ? 'on' : ''}" style="background:${v}" data-color="${k}" aria-label="${k}"></button>`).join('')}</div>
-    <details ${post?.link_url ? 'open' : ''} style="margin-top:12px"><summary class="muted" style="cursor:pointer;padding:8px 0">🔗 링크 붙이기 (선택)</summary>
+    <details ${post?.link_url ? 'open' : ''} style="margin-top:12px"><summary class="muted" style="cursor:pointer;padding:8px 0">🔗 링크·유튜브 붙이기 (선택)</summary>
       <input id="wlnk" type="url" inputmode="url" placeholder="https://" value="${esc(post?.link_url || '')}"></details>
     <div class="sfoot"><button class="soft" data-close>취소</button><button class="main" id="wgo">${post ? '고치기' : '붙이기!'}</button></div>`, sh => {
     const ta = sh.querySelector('#wtxt');
@@ -585,7 +606,7 @@ function stopLive(){
 }
 async function softReload(){
   // 글을 쓰는 중이면 방해하지 않기
-  if (reloading || !S.me || $('#sheet').innerHTML || document.hidden) return;
+  if (reloading || !S.me || $('#sheet').innerHTML || document.hidden || document.querySelector('.post .yt iframe')) return;
   reloading = true;
   try { await reloadBoard(); } finally { reloading = false; }
 }
@@ -604,6 +625,7 @@ document.addEventListener('click', e => {
     case 'mine': mineMenu(id); break;
     case 'like': like(id, el); break;
     case 'comments': commentsSheet(id); break;
+    case 'yt': { const box = el.closest('.yt'); box.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${box.dataset.yt}?autoplay=1&playsinline=1&rel=0&start=${+box.dataset.start || 0}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen title="유튜브 영상"></iframe>`; S.watching = true; break; }
     case 'zoom': openSheet(`<img class="zoomimg" src="${esc(id)}" alt="사진 크게 보기"><div class="sfoot"><button class="soft" data-close>닫기</button></div>`); break;
   }
 });

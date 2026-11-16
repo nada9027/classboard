@@ -52,6 +52,12 @@ button.soft{background:#F4EDE2}
 .tx[contenteditable=true]{-webkit-user-select:text;user-select:text;cursor:text;background:rgba(124,140,255,.06)}
 .img img{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;-webkit-user-drag:none}
 .shape > div:first-child{width:100%;height:100%}
+.video{background:#000;border-radius:12px;overflow:hidden}
+.video img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;-webkit-user-drag:none;opacity:.92}
+.video iframe{width:100%;height:100%;border:0;display:block}
+.video .play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:96px;height:68px;border-radius:20px;background:rgba(255,0,0,.9);color:#fff;font-size:34px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.3);cursor:pointer}
+.video .stop{position:absolute;right:8px;top:8px;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3}
+.present .item.video{pointer-events:auto}
 .stroke svg{width:100%;height:100%;overflow:visible;display:block}
 .handle{position:absolute;right:-18px;bottom:-18px;width:36px;height:36px;border-radius:50%;background:var(--sel);border:4px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);touch-action:none;z-index:2}
 .drawlayer{position:absolute;left:0;top:0;width:1600px;height:900px;pointer-events:none}
@@ -257,7 +263,7 @@ function renderShell(){
     <div class="stage" id="stage"><div class="wrap" id="wrap"><div class="page" id="page"></div><svg class="drawlayer" id="draw" viewBox="0 0 ${W} ${H}"></svg></div></div>
     ${S.canEdit ? `<div class="tools" id="tools">
       ${tool('select','✋','고르기')}${tool('note','🟨','포스트잇')}${tool('text','🔤','글자')}${tool('image','📷','사진')}
-      ${tool('shape','⬛','도형')}${tool('pen','✏️','펜')}${tool('eraser','🧽','지우개')}
+      ${tool('video','▶️','영상')}${tool('shape','⬛','도형')}${tool('pen','✏️','펜')}${tool('eraser','🧽','지우개')}
     </div>` : ''}
     <input id="file" type="file" accept="image/*" hidden>`;
   const gs = $('#gsel'); gs && (gs.onchange = () => gs.value && openGroup(gs.value));
@@ -295,9 +301,12 @@ function itemHtml(i){
   if (i.kind === 'note') inner = `<div class="tx" style="font-size:${d.fs || 30}px">${esc(d.text || '')}</div>`;
   else if (i.kind === 'text') inner = `<div class="tx" style="font-size:${d.fs || 48}px;color:${esc(d.color || '#3A3550')}">${esc(d.text || '')}</div>`;
   else if (i.kind === 'image') inner = `<img src="${esc(d.src)}" alt="">`;
+  else if (i.kind === 'video') inner = S.playing === i.id
+      ? `<iframe src="https://www.youtube-nocookie.com/embed/${esc(d.yt)}?autoplay=1&playsinline=1&rel=0&start=${+d.start || 0}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen title="유튜브 영상"></iframe><div class="stop" data-stop="${i.id}" title="닫기">✕</div>`
+      : `<img src="https://i.ytimg.com/vi/${esc(d.yt)}/hqdefault.jpg" alt="영상"><div class="play" data-play="${i.id}" title="재생">▶</div>`;
   else if (i.kind === 'shape') inner = `<div style="background:${esc(d.fill || '#D6ECFF')};border:${d.line ? `6px solid ${esc(d.line)}` : '0'};border-radius:${d.shape === 'ellipse' ? '50%' : '14px'}"></div>`;
   else if (i.kind === 'stroke') inner = `<svg viewBox="0 0 ${d.vw || i.w} ${d.vh || i.h}" preserveAspectRatio="none"><path d="${pathD(d.pts || [])}" fill="none" stroke="${esc(d.color || '#3A3550')}" stroke-width="${d.sw || 6}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
-  const cls = { note:'note', text:'textb', image:'img', shape:'shape', stroke:'stroke' }[i.kind];
+  const cls = { note:'note', text:'textb', image:'img', shape:'shape', stroke:'stroke', video:'video' }[i.kind];
   const bg = i.kind === 'note' ? `background:${NOTE_COLORS[d.color] || NOTE_COLORS.lemon};` : '';
   return `<div class="item ${cls} ${i.locked ? 'locked' : ''} ${S.sel === i.id ? 'sel' : ''}" data-id="${i.id}" style="left:${i.x}px;top:${i.y}px;width:${i.w}px;height:${i.h}px;z-index:${Math.max(-2e9, Math.min(2e9, Math.round(i.z * 1000)))};${bg}">${inner}<span class="lockb">🔒</span>${S.sel === i.id && canTouch(i) ? '<div class="handle" data-h="1"></div>' : ''}</div>`;
 }
@@ -394,7 +403,13 @@ setInterval(() => { if (!document.hidden && !S.editing && !S.drag && !$('.presen
 document.addEventListener('visibilitychange', () => { if (!document.hidden) reload(); });
 
 // ---------- 고르기 / 작은 막대 ----------
+function playVideo(id){
+  const prev = S.playing; S.playing = id;
+  if (prev && prev !== id) renderItem(prev);
+  if (id) renderItem(id);
+}
 function select(id){
+  if (S.playing && S.playing !== id) playVideo(null);
   const prev = S.sel; S.sel = id;
   if (prev && prev !== id){ stopEdit(); renderItem(prev); }
   if (id) renderItem(id);
@@ -494,6 +509,41 @@ function addItem(kind, x, y, extra={}){
   return i;
 }
 
+// 유튜브 주소 → 영상 번호(11자리), 시작 시간
+function parseYouTube(url){
+  let u; try { u = new URL(url.trim().replace(/^(?!https?:)/, 'https://')); } catch(e){ return null; }
+  const host = u.hostname.replace(/^www\.|^m\.|^music\./, '');
+  let id = null;
+  if (host === 'youtu.be') id = u.pathname.slice(1, 12);
+  else if (/(^|\.)youtube(-nocookie)?\.com$/.test(host)){
+    id = u.searchParams.get('v') || (u.pathname.match(/\/(embed|shorts|live|v)\/([A-Za-z0-9_-]{11})/) || [])[2];
+  }
+  if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) return null;
+  const t = u.searchParams.get('t') || u.searchParams.get('start') || '';
+  const m = String(t).match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/);
+  const start = m ? (+(m[1] || 0)) * 3600 + (+(m[2] || 0)) * 60 + (+(m[3] || 0)) : 0;
+  return { yt: id, start };
+}
+function videoSheet(){
+  sheet(`<h3>▶️ 영상 넣기</h3>
+    <p class="muted" style="font-size:14px;line-height:1.6">유튜브에서 <b>공유 → 링크 복사</b>를 누르고 여기에 붙여 넣어요.</p>
+    <input id="yurl" inputmode="url" placeholder="https://youtu.be/..." style="width:100%;border:2px solid var(--line);border-radius:14px;padding:12px 14px;font-size:16px;-webkit-user-select:text;user-select:text">
+    <div id="yprev" style="margin-top:12px"></div>
+    <div class="sfoot"><button class="soft" data-close>취소</button><button class="main" id="ygo">넣기</button></div>`, sh => {
+    const inp = sh.querySelector('#yurl'), prev = sh.querySelector('#yprev');
+    setTimeout(() => inp.focus(), 60);
+    inp.oninput = () => { const v = parseYouTube(inp.value); prev.innerHTML = v ? `<img src="https://i.ytimg.com/vi/${v.yt}/mqdefault.jpg" style="width:100%;border-radius:12px" alt="미리보기">` : (inp.value.trim() ? '<span class="muted" style="font-size:14px">유튜브 주소가 아니에요</span>' : ''); };
+    sh.querySelector('#ygo').onclick = () => {
+      const v = parseYouTube(inp.value);
+      if (!v) return toast('유튜브 주소를 넣어 주세요', true);
+      closeLayer();
+      const i = { id: uid(), page_id: S.page.id, kind:'video', w: 640, h: 360, z: maxZ() + 1, locked:false, data: v };
+      i.x = Math.round((W - i.w) / 2); i.y = Math.round((H - i.h) / 2);
+      S.items.set(i.id, i); renderItem(i.id); setTool('select'); select(i.id); commit(i, true);
+    };
+  });
+}
+
 // 사진: 1600px로 줄여 올리기
 async function onPickImage(e){
   const f = e.target.files[0]; e.target.value = '';
@@ -531,6 +581,8 @@ document.addEventListener('pointerdown', e => {
   if (!S.group || $('.present') || $('#layer').innerHTML) return;
   if (!e.target.closest('#stage')) return;
   if (S.editing && e.target.closest(`[data-id="${S.editing}"] .tx`)) return;   // 글 쓰는 중
+  const pl = e.target.closest('[data-play]'), st = e.target.closest('[data-stop]');
+  if (pl || st){ e.preventDefault(); playVideo(pl ? pl.dataset.play : null); return; }
   const [px, py] = toPage(e);
   const itemEl = e.target.closest('.item');
   const id = itemEl?.dataset.id, it = id && S.items.get(id);
@@ -574,7 +626,7 @@ document.addEventListener('pointermove', e => {
   if (!d.moved && Math.hypot(dx, dy) < 4) return;
   d.moved = true; document.querySelectorAll('.ctx').forEach(x => x.remove());
   if (d.resize){
-    const ratio = it.kind === 'image' ? d.oh / d.ow : null;
+    const ratio = it.kind === 'image' || it.kind === 'video' ? d.oh / d.ow : null;
     it.w = Math.max(40, Math.min(W, d.ow + dx));
     it.h = ratio ? it.w * ratio : Math.max(30, Math.min(H, d.oh + dy));
   } else {
@@ -688,12 +740,14 @@ function itemLabel(i){
   if (i.kind === 'note') return ['🟨', '포스트잇', (d.text || '').split('\n')[0].slice(0, 18) || '(빈 포스트잇)'];
   if (i.kind === 'text') return ['🔤', '글자', (d.text || '').split('\n')[0].slice(0, 18) || '(빈 글자)'];
   if (i.kind === 'image') return ['📷', '사진', ''];
+  if (i.kind === 'video') return ['▶️', '영상', '유튜브'];
   if (i.kind === 'shape') return [d.shape === 'ellipse' ? '⚫' : '⬛', d.shape === 'ellipse' ? '동그라미' : '네모', ''];
   return ['✏️', '펜 그림', ''];
 }
 function layersSheet(){
   const list = itemsOnPage().slice().reverse();          // 위 → 아래
   const thumb = i => i.kind === 'image' ? `<img src="${esc(i.data.src)}" style="width:44px;height:32px;object-fit:cover;border-radius:6px">`
+    : i.kind === 'video' ? `<img src="https://i.ytimg.com/vi/${esc(i.data.yt)}/default.jpg" style="width:44px;height:32px;object-fit:cover;border-radius:6px">`
     : i.kind === 'note' ? `<span style="display:inline-block;width:44px;height:32px;border-radius:6px;background:${NOTE_COLORS[i.data.color] || NOTE_COLORS.lemon}"></span>`
     : i.kind === 'shape' ? `<span style="display:inline-block;width:44px;height:32px;border-radius:${i.data.shape === 'ellipse' ? '50%' : '6px'};background:${esc(i.data.fill || '#D6ECFF')}"></span>`
     : `<span style="display:inline-block;width:44px;text-align:center;font-size:22px">${itemLabel(i)[0]}</span>`;
@@ -723,10 +777,15 @@ function startPresent(){
   el.innerHTML = `<button class="x" data-p="x">✕ 닫기</button><div class="wrap" id="pwrap"><div class="page" id="ppage"></div></div>
     <div class="nav"><button data-p="prev">‹</button><span id="pnum"></span><button data-p="next">›</button></div>`;
   document.body.appendChild(el);
-  el.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { const p = b.dataset.p; if (p === 'x') el.remove(); else { pIdx = Math.max(0, Math.min(S.pages.length - 1, pIdx + (p === 'next' ? 1 : -1))); drawPresent(); } });
+  el.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { const p = b.dataset.p; S.playing = null; if (p === 'x'){ el.remove(); renderPage(); } else { pIdx = Math.max(0, Math.min(S.pages.length - 1, pIdx + (p === 'next' ? 1 : -1))); drawPresent(); } });
   try { document.documentElement.requestFullscreen?.(); } catch(e){}
   drawPresent();
 }
+document.addEventListener('click', e => {
+  if (!$('.present')) return;
+  const pl = e.target.closest('[data-play]'), st = e.target.closest('[data-stop]');
+  if (pl || st){ S.playing = pl ? pl.dataset.play : null; drawPresent(); }
+});
 function drawPresent(){
   const pg = S.pages[pIdx], el = $('#ppage'); if (!el) return;
   el.style.background = pg.background || '#fff';
@@ -745,7 +804,7 @@ document.addEventListener('keydown', e => {
   if ($('.present')){
     if (e.key === 'ArrowRight' || e.key === ' ') $('[data-p=next]').click();
     if (e.key === 'ArrowLeft') $('[data-p=prev]').click();
-    if (e.key === 'Escape') $('.present').remove();
+    if (e.key === 'Escape'){ $('.present').remove(); S.playing = null; renderPage(); }
     return;
   }
   if (S.editing) return;
@@ -758,10 +817,11 @@ document.addEventListener('click', async e => {
   if (tb){
     const t = tb.dataset.tool;
     if (t === 'image'){ setTool('select'); $('#file').click(); return; }
+    if (t === 'video'){ setTool('select'); videoSheet(); return; }
     setTool(t); toolPop(t); return;
   }
   const pg = e.target.closest('[data-pg]');
-  if (pg){ stopEdit(); select(null); S.page = S.pages.find(p => p.id === pg.dataset.pg); renderPages(); renderPage(); return; }
+  if (pg){ stopEdit(); select(null); S.playing = null; S.page = S.pages.find(p => p.id === pg.dataset.pg); renderPages(); renderPage(); return; }
   const a = e.target.closest('[data-a]')?.dataset.a;
   if (!a) return;
   try {
