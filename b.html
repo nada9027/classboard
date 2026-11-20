@@ -8,17 +8,17 @@
 <meta name="mobile-web-app-capable" content="yes">
 <title>우리반 보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
 <style>
 :root{
   color-scheme: light only;
-  --cream:#FFF9F0; --ink:#3A3550; --ink2:#7A7590; --line:#EEE6DA;
+  --cream:#FFF9F0; --ink:#3A3550; --ink2:#5E5873; --line:#EEE6DA;
   --main:#7C8CFF; --main-soft:#E8EBFF; --danger:#F06A6A; --heart:#FF6B8B;
   --white:#FFFFFF; --sky:#D6ECFF; --mint:#D3F5E6; --lemon:#FFF4BF; --peach:#FFE0D1; --lavender:#E8DFFF; --pink:#FFDDEA;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
-html,body{margin:0;background:var(--cream);color:var(--ink);font-family:'Gowun Dodum',system-ui,sans-serif;font-size:17px;touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{margin:0;background:var(--cream);color:var(--ink);font-family:'Noto Sans KR',system-ui,sans-serif;font-weight:500;font-size:17px;touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 h1,h2,h3,.jua{font-family:'Jua',sans-serif;font-weight:400;margin:0}
 button,input,textarea,select{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:#fff;border-radius:16px;min-height:48px;padding:10px 18px;transition:transform .12s}
@@ -78,6 +78,12 @@ textarea{resize:none;min-height:140px;line-height:1.6}
 .post .who .ani{font-size:26px}
 .post .who b{font-family:'Jua';font-weight:400;font-size:18px;color:var(--ink);letter-spacing:-.2px}
 .post .txt{cursor:zoom-in}
+.cloudbox{position:relative;background:rgba(255,255,255,.9);border-radius:24px;height:calc(100vh - 290px);min-height:300px;overflow:hidden;box-shadow:0 4px 0 rgba(120,100,80,.06)}
+.cloudbox canvas{position:absolute;left:0;top:0}
+.mywords{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px;padding:12px 14px;background:rgba(255,255,255,.75);border-radius:18px}
+.wchip{display:inline-flex;align-items:center;gap:4px;background:#fff;border-radius:999px;padding:6px 6px 6px 14px;font-family:'Jua';font-size:18px;box-shadow:0 2px 6px rgba(80,60,40,.08)}
+.wchip.pend{background:#FFF3E8}
+.wchip button{min-height:32px;min-width:32px;padding:0;border-radius:50%;background:#F4EDE2;font-size:14px}
 .zoomp{border-radius:22px;padding:20px 22px}
 .zoomp .who{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .zoomp .who .ani{font-size:40px}
@@ -418,6 +424,11 @@ function render(){
         ${list.map(p => postHtml(p, fresh)).join('')}
       </div>`;
     }).join('')}</div>`;
+  } else if (b.layout === 'cloud'){
+    const mine = S.posts.filter(p => p.is_mine);
+    body = `<div class="cloudbox" id="cloudbox"></div>
+      <div class="mywords"><span class="jua" style="font-size:18px">🙋 내가 쓴 낱말</span>
+        ${mine.length ? mine.map(p => `<span class="wchip ${p.status === 'pending' ? 'pend' : ''}">${esc(p.content)}${p.status === 'pending' ? ' ⏳' : ''}${open ? `<button data-act="wdel" data-id="${p.id}" aria-label="지우기">✕</button>` : ''}</span>`).join('') : '<span class="muted">아직 없어요. 아래 ✏️ 쓰기를 눌러 봐요!</span>'}</div>`;
   } else {
     const cls = b.layout === 'grid' ? 'gridb' : 'wallb';
     body = S.posts.length ? `<div class="${cls}">${S.posts.map(p => postHtml(p, fresh)).join('')}</div>`
@@ -436,6 +447,7 @@ function render(){
     <main class="board" style="background:${esc(b.background || '#FFF9F0')}">${body}</main>
     ${open ? '<button class="fab" data-act="write">✏️ 쓰기</button>' : ''}`;
   const nc = $('.cols'); if (nc) nc.scrollLeft = sx;
+  if (b.layout === 'cloud') placeCloud();
   scrollTo(0, sy);
 }
 
@@ -461,6 +473,74 @@ function postHtml(p, fresh){
       ${canEdit ? `<button class="icon" data-act="mine" data-id="${p.id}" aria-label="내 글 메뉴">⋯</button>` : ''}
     </div>
   </div>`;
+}
+
+// ---------- 낱말 구름 그리기 (낱말 구름 보드) ----------
+const WC_SRC = 'https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js';
+const CLOUD_PAL = ['#4F5BD5','#E8590C','#1E9E5A','#C98A00','#9C36B5','#E64980','#1C7ED6','#3A3550','#0C8599','#D9480F'];
+function loadScript(src){ return new Promise((ok, no) => { if (window.WordCloud) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); }
+const cloudKey = t => String(t || '').trim().replace(/\s+/g, ' ').toLowerCase();
+function cloudList(posts){
+  const m = new Map();
+  for (const p of posts){
+    const k = cloudKey(p.content); if (!k) continue;
+    const e = m.get(k); if (e) e[1]++; else m.set(k, [String(p.content).trim().replace(/\s+/g, ' '), 1]);
+  }
+  return [...m.values()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'));
+}
+function cloudColor(word){ let h = 0; for (const c of word) h = (h * 31 + c.charCodeAt(0)) >>> 0; return CLOUD_PAL[h % CLOUD_PAL.length]; }
+async function drawCloud(canvas, list, sig){
+  if (canvas._sig === sig && canvas.width) return;           // 바뀐 게 없으면 그대로 둠
+  canvas._sig = sig;
+  const box = canvas.parentNode, dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(300, box.clientWidth), h = Math.max(240, box.clientHeight);
+  canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!list.length){
+    ctx.fillStyle = '#9A94AE'; ctx.textAlign = 'center'; ctx.font = `${Math.round(30 * dpr)}px Jua, sans-serif`;
+    ctx.fillText('첫 번째 낱말을 기다리고 있어요 ☁️', canvas.width / 2, canvas.height / 2); return;
+  }
+  try { await loadScript(WC_SRC); } catch(e){ ctx.fillStyle = '#999'; ctx.font = `${20 * dpr}px sans-serif`; ctx.fillText('낱말 구름 도구를 불러오지 못했어요', 20, 40); return; }
+  const max = list[0][1], min = list[list.length - 1][1];
+  const W = canvas.width, few = list.length < 6;
+  const small = W * (few ? 0.06 : 0.035), big = W * (few ? 0.13 : 0.12);
+  WordCloud(canvas, { list: list.slice(0, 120), fontFamily: 'Jua, sans-serif', backgroundColor: 'rgba(0,0,0,0)', rotateRatio: 0,
+    gridSize: Math.round(7 * dpr), shuffle: false, shrinkToFit: true, drawOutOfBound: false,
+    weightFactor: n => max === min ? (small + big) / 2 : small + (big - small) * Math.sqrt((n - min) / (max - min)),
+    color: word => cloudColor(word) });
+}
+
+let CLOUD_CV = null;
+function placeCloud(){
+  const box = $('#cloudbox'); if (!box) return;
+  CLOUD_CV ||= document.createElement('canvas');
+  box.appendChild(CLOUD_CV);
+  const list = cloudList(S.posts.filter(p => p.status === 'approved'));
+  drawCloud(CLOUD_CV, list, box.clientWidth + 'x' + box.clientHeight + '|' + JSON.stringify(list));
+}
+addEventListener('resize', () => { clearTimeout(window._rz); window._rz = setTimeout(() => { if ($('#cloudbox')) placeCloud(); }, 300); });
+// 낱말 구름 보드의 쓰기 창 (짧게, 낱말 하나씩)
+function cloudSheet(){
+  openSheet(`<h3>☁️ 낱말 쓰기</h3>
+    <div class="muted" style="margin-bottom:10px">떠오르는 낱말을 하나 써 봐요. 여러 번 써도 돼요!</div>
+    <input id="wword" maxlength="20" placeholder="예) 단풍" autocomplete="off" style="font-size:24px;font-family:'Jua'">
+    <div class="sfoot"><button class="soft" data-close>닫기</button><button class="main" id="wgo">구름에 붙이기!</button></div>`, sh => {
+    const inp = sh.querySelector('#wword'); setTimeout(() => inp.focus(), 60);
+    const go = async () => {
+      const v = inp.value.trim().replace(/\s+/g, ' ');
+      if (!v) return toast('낱말을 써 줘!', true);
+      sh.querySelector('#wgo').disabled = true;
+      try {
+        await call('create_post', { p_token: S.token, p_content: v, p_link_url: null, p_color: 'white', p_image_url: null, p_section_id: S.sections[0]?.id || null });
+        toast(S.board.require_approval ? '붙였어요! 선생님이 확인하면 구름에 나타나요 ⏳' : '구름에 붙었어요! ☁️');
+        inp.value = ''; inp.focus(); ping(); await loadPosts(); render();
+      } catch(e){}
+      sh.querySelector('#wgo').disabled = false;
+    };
+    sh.querySelector('#wgo').onclick = go;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing){ e.preventDefault(); go(); } });
+  });
 }
 
 // 링크가 사진이면 사진으로 보여 주기
@@ -498,6 +578,7 @@ function closeSheet(){ $('#sheet').innerHTML = ''; }
 
 // ---------- 쓰기 / 고치기 ----------
 function writeSheet(sectionId, post){
+  if (S.board.layout === 'cloud' && !post) return cloudSheet();
   const isCol = S.board.layout === 'columns';
   let sec = post ? post.section_id : (sectionId || S.sections[0]?.id || null);
   let color = post ? post.color : S.lastColor;
@@ -659,6 +740,9 @@ document.addEventListener('click', e => {
     case 'comments': commentsSheet(id); break;
     case 'yt': { const box = el.closest('.yt'); box.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${box.dataset.yt}?autoplay=1&playsinline=1&rel=0&start=${+box.dataset.start || 0}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen title="유튜브 영상"></iframe>`; S.watching = true; break; }
     case 'pzoom': zoomPost(id); break;
+    case 'wdel': openSheet(`<h3>‘${esc(S.posts.find(x => x.id === id)?.content || '')}’ 낱말을 지울까요?</h3><div class="sfoot"><button class="soft" data-close>아니요</button><button class="main" style="background:var(--danger)" id="dyes">지울래요</button></div>`, sh => {
+        sh.querySelector('#dyes').onclick = async () => { try { await call('delete_post', { p_token: S.token, p_post_id: id }); closeSheet(); toast('지웠어요'); ping(); await loadPosts(); render(); } catch(e){} };
+      }); break;
     case 'zoom': openSheet(`<img class="zoomimg" src="${esc(id)}" alt="사진 크게 보기"><div class="sfoot"><button class="soft" data-close>닫기</button></div>`); break;
   }
 });

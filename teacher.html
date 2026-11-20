@@ -6,17 +6,17 @@
 <meta name="color-scheme" content="light only">
 <title>우리반 보드 · 선생님</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
 <style>
 :root{
-  --cream:#FFF9F0; --paper:#FFFFFF; --ink:#3A3550; --ink2:#7A7590; --line:#EEE6DA;
+  --cream:#FFF9F0; --paper:#FFFFFF; --ink:#3A3550; --ink2:#5E5873; --line:#EEE6DA;
   --main:#7C8CFF; --main-soft:#E8EBFF; --danger:#F06A6A; --danger-soft:#FFE6E6; --ok:#3DBE8B; --ok-soft:#DDF6EC;
   --sky:#D6ECFF; --mint:#D3F5E6; --lemon:#FFF4BF; --peach:#FFE0D1; --lavender:#E8DFFF; --pink:#FFDDEA;
   --r:18px;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html,body{margin:0;background:var(--cream);color:var(--ink);font-family:'Gowun Dodum',system-ui,sans-serif;font-size:15px}
+html,body{margin:0;background:var(--cream);color:var(--ink);font-family:'Noto Sans KR',system-ui,sans-serif;font-weight:500;font-size:15px}
 h1,h2,h3,.jua{font-family:'Jua',sans-serif;font-weight:400;margin:0}
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:inherit;text-decoration:none}
@@ -76,6 +76,13 @@ body.is-dragging .side::before{content:'여기 폴더 위에 놓으세요 👇';
 .laybar .pv{flex-basis:70px;width:70px;height:48px;padding:5px}
 .pv{overflow:hidden;width:96px}
 .freeboard{padding:16px;border-radius:22px;min-height:300px}
+.cloudbox{position:relative;background:rgba(255,255,255,.88);border-radius:20px;height:min(62vh,560px);overflow:hidden}
+.cloudbox canvas{position:absolute;left:0;top:0}
+.cloudbox .cloudttl{position:absolute;left:18px;top:12px;font-family:'Jua';font-size:20px;color:var(--ink2);z-index:1;pointer-events:none}
+.cloudbox:fullscreen{height:100vh;border-radius:0;background:#fff}
+.cloudbox:fullscreen .cloudttl{font-size:40px;left:40px;top:28px}
+.cloudlist .post{min-height:0!important}
+.cloudlist .post .txt{font-family:'Jua';font-size:20px}
 .freeboard.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;align-items:start}
 .freeboard.grid .post{margin:0;min-height:140px}
 .freeboard.wall{column-width:240px;column-gap:14px}
@@ -152,7 +159,7 @@ body.is-dragging .side::before{content:'여기 폴더 위에 놓으세요 👇';
 .wcx .chip{cursor:pointer}
 .sharebox{text-align:center}
 .sharebox #sqr{display:inline-block;padding:12px;background:#fff;border-radius:16px;border:1.5px solid var(--line);margin:12px 0}
-.parentcards{display:grid;grid-template-columns:repeat(2,1fr);font-family:'Gowun Dodum',sans-serif}
+.parentcards{display:grid;grid-template-columns:repeat(2,1fr);font-family:'Noto Sans KR',sans-serif}
 .parentcard{border:1.5px dashed #bbb;padding:14px;display:flex;gap:14px;align-items:center;break-inside:avoid;height:62mm}
 .parentcard .q img,.parentcard .q canvas{width:120px!important;height:120px!important}
 .parentcard .n{font-family:'Jua';font-size:20px;margin-bottom:4px}
@@ -220,7 +227,7 @@ table.t input{padding:6px 9px;border-radius:9px}
   body.print-pin .parentcard{height:60mm}
 }
 #printzone{display:none}
-.pincards{display:grid;grid-template-columns:repeat(3,1fr);gap:0;font-family:'Gowun Dodum',sans-serif}
+.pincards{display:grid;grid-template-columns:repeat(3,1fr);gap:0;font-family:'Noto Sans KR',sans-serif}
 .pincard{border:1.5px dashed #bbb;padding:18px 10px;text-align:center;break-inside:avoid;height:46mm;display:flex;flex-direction:column;justify-content:center;gap:4px}
 .pincard .a{font-size:34px}
 .pincard .n{font-family:'Jua';font-size:20px}
@@ -255,7 +262,7 @@ const BGS = [
   '#FFF4BF', '#D3F5E6', '#FFE0D1'
 ];
 const LINK_LABEL = {open:'열림', readonly:'보기만', closed:'닫힘'};
-const LAYOUT_LABEL = {columns:'칼럼형', wall:'담벼락형', grid:'그리드형', canvas:'캔버스'};
+const LAYOUT_LABEL = {columns:'칼럼형', wall:'담벼락형', grid:'그리드형', canvas:'캔버스', cloud:'낱말 구름'};
 
 const S = {
   user:null, classes:[], classId:null,
@@ -371,54 +378,40 @@ function zoomPost(id){
     <div class="mfoot"><button data-act="cm-add" data-id="${p.id}">＋ 선생님 댓글</button><button class="main" onclick="closeModal()">닫기</button></div>`, null, 'wide');
 }
 
-// ---------- 낱말 구름 ----------
-const STOP = new Set('그리고 그래서 그러나 하지만 그런데 그냥 정말 너무 진짜 아주 매우 조금 많이 나는 저는 내가 제가 우리 우리는 우리가 너는 그것 이것 저것 그거 이거 저거 것이 것은 것을 수가 때문 때문에 같아요 같다 있어요 있다 있는 있고 없어요 없다 없는 했어요 했다 하는 하고 해서 해요 합니다 했습니다 됩니다 되고 되어 이런 저런 그런 어떤 무엇 왜냐하면 그때 다음 처음 오늘 이제 예시'.split(' '));
-const JOSA = ['에서는','에게서','으로는','이라고','라고','에서','에게','으로','까지','부터','처럼','보다','하고','이랑','이나','이고','이다','예요','이에요','입니다','습니다','했어요','해요','어요','아요','었다','았다','는','은','이','가','을','를','에','의','도','로','와','과','만','랑','요','고'];
-function wordCounts(texts){
+// ---------- 낱말 구름 그리기 (낱말 구름 보드) ----------
+const WC_SRC = 'https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js';
+const CLOUD_PAL = ['#4F5BD5','#E8590C','#1E9E5A','#C98A00','#9C36B5','#E64980','#1C7ED6','#3A3550','#0C8599','#D9480F'];
+function loadScript(src){ return new Promise((ok, no) => { if (window.WordCloud) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); }
+const cloudKey = t => String(t || '').trim().replace(/\s+/g, ' ').toLowerCase();
+function cloudList(posts){
   const m = new Map();
-  for (const t of texts){
-    for (let w of String(t || '').toLowerCase().replace(/https?:\/\/\S+/g, ' ').split(/[^0-9a-z가-힣]+/)){
-      if (!w) continue;
-      if (/[가-힣]/.test(w)){
-        for (const j of JOSA) if (w.length - j.length >= 2 && w.endsWith(j)){ w = w.slice(0, -j.length); break; }
-        if (w.length < 2) continue;
-      } else if (w.length < 3 || /^\d+$/.test(w)) continue;
-      if (STOP.has(w)) continue;
-      m.set(w, (m.get(w) || 0) + 1);
-    }
+  for (const p of posts){
+    const k = cloudKey(p.content); if (!k) continue;
+    const e = m.get(k); if (e) e[1]++; else m.set(k, [String(p.content).trim().replace(/\s+/g, ' '), 1]);
   }
-  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  return [...m.values()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'));
 }
-function loadScript(src){ return new Promise((ok, no) => { if ([...document.scripts].some(s => s.src === src)) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); }
-async function wordCloud(){
-  const b = boardById(S.view.id), d = S.detail; if (!d?.posts) return;
-  const hidden = new Set();
-  const texts = d.posts.filter(p => p.status === 'approved').map(p => p.content);
-  openModal(`<div class="mh" style="margin-bottom:8px"><h3 style="margin:0">☁️ 낱말 구름 · ${esc(b.title)}</h3><span class="sp"></span>
-      <button class="sm" id="wcfs">⛶ 전체 화면</button><button class="sm" id="wcre">🔄 다시 섞기</button></div>
-    <div id="wcbox"><canvas id="wc" width="1600" height="860"></canvas></div>
-    <div class="muted" style="font-size:13px;margin-top:8px">공개된 글에서 많이 나온 낱말일수록 크게 보여요. 빼고 싶은 낱말은 구름에서 눌러 주세요.</div>
-    <div class="wcx" id="wcx"></div>
-    <div class="mfoot"><button class="main" onclick="closeModal()">닫기</button></div>`, async m => {
-    try { await loadScript('https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js'); }
-    catch(e){ return toast('낱말 구름 도구를 불러오지 못했어요', true); }
-    const PAL = ['#5B6CFF','#FF7A59','#2BB673','#E8A800','#B45CE0','#FF5C8A','#1FA2C9','#3A3550'];
-    const draw = () => {
-      const all = wordCounts(texts).filter(([w]) => !hidden.has(w)).slice(0, 70);
-      m.querySelector('#wcx').innerHTML = hidden.size ? '뺀 낱말: ' + [...hidden].map(w => `<span class="chip" data-w="${esc(w)}" title="다시 넣기">${esc(w)} ↩</span>`).join('') : '';
-      m.querySelectorAll('[data-w]').forEach(c => c.onclick = () => { hidden.delete(c.dataset.w); draw(); });
-      const cv = m.querySelector('#wc');
-      if (!all.length){ const x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height); x.font = "48px Jua"; x.fillStyle = '#999'; x.textAlign = 'center'; x.fillText('아직 낱말이 없어요', cv.width / 2, cv.height / 2); return; }
-      const max = all[0][1], min = all[all.length - 1][1];
-      WordCloud(cv, { list: all, fontFamily: 'Jua, sans-serif', backgroundColor: '#ffffff', rotateRatio: 0, gridSize: 12, shuffle: true, drawOutOfBound: false, shrinkToFit: true,
-        weightFactor: n => 44 + (max === min ? 80 : (n - min) / (max - min) * 160),
-        color: () => PAL[Math.floor(Math.random() * PAL.length)],
-        click: item => { hidden.add(item[0]); draw(); } });
-    };
-    draw();
-    m.querySelector('#wcre').onclick = draw;
-    m.querySelector('#wcfs').onclick = () => { const bx = m.querySelector('#wcbox'); bx.classList.add('fs'); (bx.requestFullscreen ? bx.requestFullscreen() : Promise.reject()).catch(() => {}); bx.onfullscreenchange = () => { if (!document.fullscreenElement) bx.classList.remove('fs'); }; };
-  }, 'wide');
+function cloudColor(word){ let h = 0; for (const c of word) h = (h * 31 + c.charCodeAt(0)) >>> 0; return CLOUD_PAL[h % CLOUD_PAL.length]; }
+async function drawCloud(canvas, list, sig){
+  if (canvas._sig === sig && canvas.width) return;           // 바뀐 게 없으면 그대로 둠
+  canvas._sig = sig;
+  const box = canvas.parentNode, dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(300, box.clientWidth), h = Math.max(240, box.clientHeight);
+  canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!list.length){
+    ctx.fillStyle = '#9A94AE'; ctx.textAlign = 'center'; ctx.font = `${Math.round(30 * dpr)}px Jua, sans-serif`;
+    ctx.fillText('첫 번째 낱말을 기다리고 있어요 ☁️', canvas.width / 2, canvas.height / 2); return;
+  }
+  try { await loadScript(WC_SRC); } catch(e){ ctx.fillStyle = '#999'; ctx.font = `${20 * dpr}px sans-serif`; ctx.fillText('낱말 구름 도구를 불러오지 못했어요', 20, 40); return; }
+  const max = list[0][1], min = list[list.length - 1][1];
+  const W = canvas.width, few = list.length < 6;
+  const small = W * (few ? 0.06 : 0.035), big = W * (few ? 0.13 : 0.12);
+  WordCloud(canvas, { list: list.slice(0, 120), fontFamily: 'Jua, sans-serif', backgroundColor: 'rgba(0,0,0,0)', rotateRatio: 0,
+    gridSize: Math.round(7 * dpr), shuffle: false, shrinkToFit: true, drawOutOfBound: false,
+    weightFactor: n => max === min ? (small + big) / 2 : small + (big - small) * Math.sqrt((n - min) / (max - min)),
+    color: word => cloudColor(word) });
 }
 
 // ---------- 학부모 링크 ----------
@@ -667,7 +660,19 @@ function render(){
     S.view = { t:'all' }; stopLive(); await loadClassData(); render();
   };
   if (S.view.t === 'board') startLive();
+  if (S.view.t === 'board' && boardById(S.view.id)?.layout === 'cloud' && S.detail?.posts) placeCloud();
 }
+// 낱말 구름 캔버스는 다시 그려도 같은 것을 재사용 (낱말이 그대로면 모양도 그대로)
+let CLOUD_CV = null;
+function placeCloud(){
+  const box = $('#cloudbox'); if (!box) return;
+  CLOUD_CV ||= document.createElement('canvas');
+  box.appendChild(CLOUD_CV);
+  const list = cloudList(S.detail.posts.filter(p => p.status === 'approved'));
+  drawCloud(CLOUD_CV, list, S.view.id + '|' + box.clientWidth + 'x' + box.clientHeight + '|' + JSON.stringify(list));
+}
+document.addEventListener('fullscreenchange', () => setTimeout(() => { if ($('#cloudbox')) placeCloud(); }, 150));
+addEventListener('resize', () => { clearTimeout(window._rz); window._rz = setTimeout(() => { if ($('#cloudbox')) placeCloud(); }, 300); });
 
 function navItem(label, t, extra={}){
   const on = S.view.t === t && (extra.id ? S.view.id === extra.id : true);
@@ -867,7 +872,7 @@ function renderDetail(){
       <a href="${esc(studentUrl(b.share_code))}" target="_blank" rel="noopener"><button class="sm">↗ 학생 화면</button></a>
       <button class="sm" data-act="copy-link" data-id="${b.id}">🔗 링크</button>
       <button class="sm" data-act="qr" data-id="${b.id}">📱 QR</button>
-      ${b.layout === 'canvas' ? '' : '<button class="sm" data-act="wordcloud">☁️ 낱말 구름</button><button class="sm" data-act="teacher-post">✏️ 선생님 글</button>'}
+      ${b.layout === 'canvas' ? '' : (b.layout === 'cloud' ? '<button class="sm" data-act="cloud-fs">⛶ 크게 띄우기</button>' : '') + '<button class="sm" data-act="teacher-post">✏️ 선생님 글</button>'}
       <button class="sm" data-act="board-settings" data-id="${b.id}">⚙️ 설정</button>
     </div>`;
   if (!d) return head + '<div class="loading">불러오는 중…</div>';
@@ -902,13 +907,23 @@ function renderDetail(){
       ${b.layout === 'columns' && d.sections.length > 1 ? `<div class="pf">칼럼 <select data-move-post="${p.id}">${secOpts(p.section_id)}</select></div>` : ''}
     </div>`;
   };
+  if (b.layout === 'cloud'){
+    const shown = d.posts.filter(p => p.status === 'approved');
+    const words = cloudList(shown);
+    return head + info + `<div class="freeboard" style="background:${esc(b.background || BGS[0])}">
+        <div id="cloudbox" class="cloudbox"><div class="cloudttl">${esc(b.title)}</div></div>
+        <div class="muted" style="font-size:13px;margin:10px 4px 0">낱말 <b>${shown.length}</b>개 · 서로 다른 낱말 <b>${words.length}</b>개 · 숨기거나 지운 낱말은 구름에서 빠져요</div>
+      </div>
+      <h3 style="margin:20px 0 10px;font-size:18px">📝 학생이 쓴 낱말</h3>
+      <div class="freeboard grid cloudlist">${d.posts.map(postHtml).join('') || '<div class="muted" style="padding:10px">아직 낱말이 없어요</div>'}</div>`;
+  }
   const free = b.layout !== 'columns';
   const board = free
     ? `<div class="freeboard ${b.layout}" style="background:${esc(b.background || BGS[0])}">${d.posts.map(postHtml).join('') || '<div class="muted" style="padding:10px">아직 글이 없어요</div>'}</div>`
     : `<div class="cols" style="background:${esc(b.background || BGS[0])}">
     ${cols.map(c => {
       const list = d.posts.filter(p => c.id ? p.section_id === c.id : (!p.section_id || !d.sections.some(s => s.id === p.section_id)));
-      return `<div class="col"><div class="colh"><span>${esc(c.title)}</span><span class="muted" style="font-family:'Gowun Dodum';font-size:13px">${list.length}</span></div>${list.map(postHtml).join('') || '<div class="muted" style="font-size:13px;padding:6px">아직 글이 없어요</div>'}</div>`;
+      return `<div class="col"><div class="colh"><span>${esc(c.title)}</span><span class="muted" style="font-family:'Noto Sans KR';font-size:13px">${list.length}</span></div>${list.map(postHtml).join('') || '<div class="muted" style="font-size:13px;padding:6px">아직 글이 없어요</div>'}</div>`;
     }).join('') || '<div class="muted">칼럼이 없어요. ⚙️ 설정에서 칼럼을 추가하세요.</div>'}
   </div>`;
   return head + info + board;
@@ -997,11 +1012,13 @@ const LAYOUTS = {
   columns: { name:'칼럼형', icon:'🗂️', desc:'주제별로 칸을 나눠 모아요', ex:'예) 좋은 점 / 아쉬운 점 / 궁금한 점' },
   grid:    { name:'그리드형', icon:'🔲', desc:'카드가 바둑판처럼 같은 크기로 줄 서요', ex:'예) 오늘 배운 점, 작품 전시, 자기소개' },
   wall:    { name:'담벼락형', icon:'🧱', desc:'글 길이대로 벽돌처럼 차곡차곡 쌓여요', ex:'예) 자유롭게 소감 나누기, 칭찬 릴레이' },
-  canvas:  { name:'캔버스', icon:'🎨', desc:'사진·포스트잇·그림으로 발표자료를 만들어요 (모둠용·개인용)', ex:'예) 모둠 조사 발표, 나의 꿈 발표, 생각 지도' }
+  canvas:  { name:'캔버스', icon:'🎨', desc:'사진·포스트잇·그림으로 발표자료를 만들어요 (모둠용·개인용)', ex:'예) 모둠 조사 발표, 나의 꿈 발표, 생각 지도' },
+  cloud:   { name:'낱말 구름', icon:'☁️', desc:'학생이 쓴 낱말이 구름처럼 모여요. 많이 나온 낱말일수록 크게!', ex:'예) ‘가을’ 하면 떠오르는 말, 오늘 기분, 배운 낱말' }
 };
 function layoutPreview(k){
   if (k === 'columns') return `<div class="pv pv-col">${[3,2,3].map(n => `<div>${'<i></i>'.repeat(n)}</div>`).join('')}</div>`;
   if (k === 'grid') return `<div class="pv pv-grid">${'<i></i>'.repeat(6)}</div>`;
+  if (k === 'cloud') return `<div class="pv" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:2px 5px;font-family:Jua;line-height:1"><span style="font-size:11px;color:#E8590C">가을</span><span style="font-size:20px;color:#4F5BD5">단풍</span><span style="font-size:10px;color:#1E9E5A">바람</span><span style="font-size:14px;color:#9C36B5">낙엽</span><span style="font-size:9px;color:#C98A00">밤</span></div>`;
   if (k === 'canvas') return `<div class="pv" style="position:relative;display:block"><i style="position:absolute;left:8px;top:8px;width:30px;height:24px;background:#FFF4BF"></i><i style="position:absolute;left:44px;top:18px;width:36px;height:28px;background:#D3F5E6"></i><i style="position:absolute;left:14px;top:38px;width:26px;height:18px;background:#FFE0D1"></i><svg style="position:absolute;left:48px;top:4px" width="40" height="14"><path d="M2 10 Q12 0 22 8 T38 6" stroke="#7C8CFF" stroke-width="2.5" fill="none"/></svg></div>`;
   return `<div class="pv pv-wall"><div><i style="height:22px"></i><i style="height:12px"></i></div><div><i style="height:12px"></i><i style="height:24px"></i></div><div><i style="height:18px"></i><i style="height:16px"></i></div></div>`;
 }
@@ -1019,8 +1036,8 @@ function boardFormHtml(b, sections, layout){
       ${b ? `<div class="muted" style="font-size:13px;margin-bottom:6px">모양</div><div class="seg" style="width:100%">${Object.keys(LAYOUTS).map(k => `<button type="button" style="flex:1" class="${k === layout ? 'on' : ''}" data-act="switch-layout" data-id="${k}">${LAYOUTS[k].icon} ${LAYOUTS[k].name}</button>`).join('')}</div>`
           : `<div class="row">${layoutPreview(layout)}<div><div class="jua" style="font-size:18px">${LAYOUTS[layout].icon} ${LAYOUTS[layout].name}</div><div class="muted" style="font-size:12px">${LAYOUTS[layout].desc}</div></div><span class="sp"></span><button type="button" class="sm ghost" data-act="back-layout">모양 바꾸기</button></div>`}
     </div>
-    <label class="f">보드 제목</label><input name="title" value="${esc(b?.title || '')}" placeholder="${isCol ? '토끼와 거북이, 어떻게 생각해?' : layout === 'canvas' ? '우리 마을 소개하기' : '오늘 배운 점 한 줄'}" required>
-    <label class="f">설명 (학생에게 보이는 안내)</label><input name="desc" value="${esc(b?.description || '')}" placeholder="${isCol ? '알맞은 칸에 내 생각을 붙여 보세요' : layout === 'canvas' ? '모둠 친구들과 사진·포스트잇으로 발표자료를 만들어요' : '한 장에 하나씩 자유롭게 써 보세요'}">
+    <label class="f">보드 제목</label><input name="title" value="${esc(b?.title || '')}" placeholder="${isCol ? '토끼와 거북이, 어떻게 생각해?' : layout === 'canvas' ? '우리 마을 소개하기' : layout === 'cloud' ? '‘가을’ 하면 떠오르는 낱말은?' : '오늘 배운 점 한 줄'}" required>
+    <label class="f">설명 (학생에게 보이는 안내)</label><input name="desc" value="${esc(b?.description || '')}" placeholder="${isCol ? '알맞은 칸에 내 생각을 붙여 보세요' : layout === 'canvas' ? '모둠 친구들과 사진·포스트잇으로 발표자료를 만들어요' : layout === 'cloud' ? '떠오르는 낱말을 하나씩 써 보세요. 여러 개 써도 돼요!' : '한 장에 하나씩 자유롭게 써 보세요'}">
     ${b ? '' : `<label class="f">폴더</label><select name="folder" data-newfolder>${folderOptions(S.view.t === 'folder' ? S.view.id : null)}<option value="__new">＋ 새 폴더 만들기…${S.view.t === 'folder' ? ` (‘${esc(folderById(S.view.id)?.name || '')}’ 안에)` : ''}</option></select>
       <input name="newfolder" placeholder="새 폴더 이름 (예: 국어 3단원)" style="margin-top:8px" hidden>`}
 
@@ -1029,7 +1046,8 @@ function boardFormHtml(b, sections, layout){
       <div id="secList">${(sections && sections.length ? sections : [{ title:'좋은 점' }, { title:'아쉬운 점' }, { title:'궁금한 점' }]).map(s => secRow(s)).join('')}</div>
       <button type="button" class="sm" data-act="sec-add">＋ 칼럼 추가</button>
     </div>
-    <div class="only-free muted" style="font-size:13px;margin-top:12px" ${isCol || layout === 'canvas' ? 'hidden' : ''}>📌 칸 나누기 없이 모든 카드가 한 판에 모여요.</div>
+    <div class="only-free muted" style="font-size:13px;margin-top:12px" ${isCol || layout === 'canvas' || layout === 'cloud' ? 'hidden' : ''}>📌 칸 나누기 없이 모든 카드가 한 판에 모여요.</div>
+    <div class="only-cloud muted" style="font-size:13px;margin-top:12px;line-height:1.6" ${layout === 'cloud' ? '' : 'hidden'}>☁️ 학생이 낱말이나 짧은 말(20자까지)을 쓰면 구름처럼 모여요. 같은 낱말을 쓴 친구가 많을수록 크게 보여요. 한 학생이 여러 개 써도 돼요.</div>
     <div class="only-canvas" ${layout === 'canvas' ? '' : 'hidden'}>
       <label class="f">캔버스 종류</label>
       <div class="seg" style="width:100%">
@@ -1278,7 +1296,8 @@ const ACT = {
     m.querySelector('[name=layout]').value = k;
     m.querySelectorAll('[data-act=switch-layout]').forEach(x => x.classList.toggle('on', x.dataset.id === k));
     m.querySelectorAll('.only-col').forEach(x => x.hidden = k !== 'columns');
-    m.querySelectorAll('.only-free').forEach(x => x.hidden = k === 'columns' || k === 'canvas');
+    m.querySelectorAll('.only-free').forEach(x => x.hidden = k === 'columns' || k === 'canvas' || k === 'cloud');
+    m.querySelectorAll('.only-cloud').forEach(x => x.hidden = k !== 'cloud');
     m.querySelectorAll('.only-canvas').forEach(x => x.hidden = k !== 'canvas');
     m.querySelectorAll('.not-canvas').forEach(x => x.hidden = k === 'canvas');
   },
@@ -1396,7 +1415,10 @@ const ACT = {
     });
   },
   'zoom-post': id => zoomPost(id),
-  wordcloud: () => wordCloud(),
+  'cloud-fs': () => {
+    const bx = $('#cloudbox'); if (!bx?.requestFullscreen) return toast('이 브라우저는 전체 화면을 지원하지 않아요', true);
+    bx.requestFullscreen().catch(() => {});
+  },
   'cm-del': async id => {
     if (!await confirmBox('이 댓글을 지울까요?', '삭제', true)) return;
     await q(sb.from('comments').delete().eq('id', id)); ping(); await refresh();
