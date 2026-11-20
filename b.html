@@ -74,10 +74,19 @@ textarea{resize:none;min-height:140px;line-height:1.6}
 .post .pinb{display:inline-block;font-size:13px;background:#FFF0B8;color:#8A6A00;border-radius:999px;padding:3px 10px;margin:0 6px 8px 0}
 .post.pop{animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
 @keyframes pop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
-.post .who{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink2);margin-bottom:8px}
-.post .who .ani{font-size:24px}
-.post .who b{font-weight:400;color:var(--ink)}
+.post .who{display:flex;align-items:center;gap:8px;font-size:15px;color:var(--ink2);margin-bottom:8px}
+.post .who .ani{font-size:26px}
+.post .who b{font-family:'Jua';font-weight:400;font-size:18px;color:var(--ink);letter-spacing:-.2px}
+.post .txt{cursor:zoom-in}
+.zoomp{border-radius:22px;padding:20px 22px}
+.zoomp .who{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.zoomp .who .ani{font-size:40px}
+.zoomp .who b{font-family:'Jua';font-weight:400;font-size:28px}
+.zoomp .txt{white-space:pre-wrap;word-break:break-word;font-size:28px;line-height:1.6}
+.zoomp img.big{display:block;max-width:100%;max-height:60vh;margin:6px auto 10px;border-radius:16px}
+.sheet.wide{width:min(900px,100%)}
 .post .txt{white-space:pre-wrap;word-break:break-word;line-height:1.6;font-size:17px}
+.post .lnkimg{display:block}
 .post .lnk{display:flex;align-items:center;gap:6px;margin-top:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.7);font-size:14px;color:#4B57C8;text-decoration:none;word-break:break-all}
 .post .pimg{display:block;width:100%;max-height:340px;object-fit:cover;border-radius:14px;margin:4px 0 6px;background:#f3eee6;cursor:zoom-in}
 .photo-pick{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
@@ -441,22 +450,45 @@ function postHtml(p, fresh){
     ${p.pinned ? '<span class="pinb">📌 선생님이 고정한 글</span>' : ''}${p.status === 'pending' ? '<div class="pend">⏳ 선생님 확인 중</div>' : ''}
     <div class="who"><span class="ani">${who}</span><b>${esc(name)}</b></div>
     ${p.image_url ? `<img class="pimg" src="${esc(p.image_url)}" loading="lazy" alt="첨부 사진" data-act="zoom" data-id="${esc(p.image_url)}">` : ''}
-    ${p.content ? `<div class="txt">${esc(p.content)}</div>` : ''}
+    ${p.content ? `<div class="txt" data-act="pzoom" data-id="${p.id}">${esc(p.content)}</div>` : ''}
     ${yt ? `<div class="yt" data-yt="${yt.yt}" data-start="${yt.start}"><img src="https://i.ytimg.com/vi/${yt.yt}/hqdefault.jpg" alt="영상" loading="lazy"><button class="play" data-act="yt" data-id="${p.id}" aria-label="영상 재생">▶</button></div>`
-         : url ? `<a class="lnk" href="${esc(url)}" target="_blank" rel="noopener">🔗 ${esc(new URL(url).hostname)}</a>` : ''}
+         : url ? linkPreview(url) : ''}
     <div class="pfoot">
       <button class="icon heart ${p.liked ? 'on' : ''}" data-act="like" data-id="${p.id}" ${p.status !== 'approved' ? 'disabled' : ''}><span class="h">${p.liked ? '❤️' : '🤍'}</span>${p.like_count || ''}</button>
       <button class="icon cbtn" data-act="comments" data-id="${p.id}" ${p.status !== 'approved' ? 'disabled' : ''}>💬 ${p.comments.length || ''}</button>
+      <button class="icon" data-act="pzoom" data-id="${p.id}" aria-label="크게 보기" style="font-size:18px">🔍</button>
       <span class="sp"></span>
       ${canEdit ? `<button class="icon" data-act="mine" data-id="${p.id}" aria-label="내 글 메뉴">⋯</button>` : ''}
     </div>
   </div>`;
 }
 
+// 링크가 사진이면 사진으로 보여 주기
+const IMG_EXT = /\.(jpe?g|png|gif|webp|avif|bmp|svg)(\?|#|$)/i;
+function linkPreview(href){
+  const u = new URL(href), url = esc(u.href), host = esc(u.hostname);
+  if (IMG_EXT.test(u.pathname)) return `<a class="lnkimg" href="${url}" target="_blank" rel="noopener"><img class="pimg" src="${url}" loading="lazy" alt="링크 사진" onerror="this.parentNode.nextElementSibling.hidden=false;this.parentNode.remove()"></a><a class="lnk" href="${url}" target="_blank" rel="noopener" hidden>🔗 ${host}</a>`;
+  return `<a class="lnkimg" href="${url}" target="_blank" rel="noopener"><img class="pimg" src="${url}" loading="lazy" alt="" hidden onload="this.hidden=false" onerror="this.parentNode.remove()"></a><a class="lnk" href="${url}" target="_blank" rel="noopener">🔗 ${host}</a>`;
+}
+// 글 크게 보기 (TV·패드에서 함께 보기 좋게)
+function zoomPost(id){
+  const p = S.posts.find(x => x.id === id); if (!p) return;
+  const n = p.is_mine ? S.me.number : authorNum(p.author);
+  const name = p.is_teacher ? '선생님' : (p.is_mine ? '나' : (p.author || '친구'));
+  const url = safeUrl(p.link_url);
+  openSheet(`<div class="zoomp" style="background:${COLORS[p.color] || '#fff'}">
+      <div class="who"><span class="ani">${p.is_teacher ? '👩‍🏫' : ani(n)}</span><b>${esc(name)}</b></div>
+      ${p.image_url ? `<img class="big" src="${esc(p.image_url)}" alt="첨부 사진">` : ''}
+      ${p.content ? `<div class="txt">${esc(p.content)}</div>` : ''}
+      ${url && !parseYouTube(url) ? `<div class="post" style="background:transparent;box-shadow:none;padding:0;margin:8px 0 0">${linkPreview(url)}</div>` : ''}
+    </div>
+    <div class="sfoot">${p.status === 'approved' ? `<button class="soft" data-act="comments" data-id="${p.id}">💬 댓글 ${p.comments.length || ''}</button>` : ''}<button class="main" data-close>닫기</button></div>`, null, 'wide');
+}
+
 // ---------- 시트 ----------
-function openSheet(html, onMount){
+function openSheet(html, onMount, cls=''){
   const root = $('#sheet');
-  root.innerHTML = `<div class="sheet-bg"><div class="sheet">${html}</div></div>`;
+  root.innerHTML = `<div class="sheet-bg"><div class="sheet ${cls}">${html}</div></div>`;
   const bg = root.firstElementChild;
   bg.addEventListener('click', e => { if (e.target === bg && !bg.querySelector('#dots')) closeSheet(); });
   bg.querySelectorAll('[data-close]').forEach(b => b.onclick = closeSheet);
@@ -510,7 +542,7 @@ function writeSheet(sectionId, post){
         if (photoFile){
           btn.textContent = '사진 올리는 중… 📷';
           try { img = await uploadImage(photoFile); }
-          catch(err){ toast(errCode(err) === 'BIG' ? '사진이 너무 커요. 다른 사진을 골라 줘' : '사진을 올리지 못했어요. 다시 해 볼까?', true); throw err; }
+          catch(err){ console.error(err); toast(errCode(err) === 'BIG' ? '사진이 너무 커요. 다른 사진을 골라 줘' : `사진을 올리지 못했어요. 다시 해 볼까? (${String(err?.message || err).slice(0, 60)})`, true); throw err; }
         }
         const args = { p_token: S.token, p_content: txt, p_link_url: lnk || null, p_color: color, p_image_url: img };
         if (post) await call('update_post', { ...args, p_post_id: post.id });
@@ -626,6 +658,7 @@ document.addEventListener('click', e => {
     case 'like': like(id, el); break;
     case 'comments': commentsSheet(id); break;
     case 'yt': { const box = el.closest('.yt'); box.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${box.dataset.yt}?autoplay=1&playsinline=1&rel=0&start=${+box.dataset.start || 0}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen title="유튜브 영상"></iframe>`; S.watching = true; break; }
+    case 'pzoom': zoomPost(id); break;
     case 'zoom': openSheet(`<img class="zoomimg" src="${esc(id)}" alt="사진 크게 보기"><div class="sfoot"><button class="soft" data-close>닫기</button></div>`); break;
   }
 });
